@@ -1,0 +1,361 @@
+# Bot Control Center – compose.yaml (neutrale Vorlage, Stand 9.16.0)
+# Platzhalter anpassen: Twitch-Client-ID, bot.example.org (deine Adresse), Heimnetz (192.168.1.x).
+# Fünf Dienste: db, web, twitch, discord, mcp. Entspricht der produktiven Datei seit der Umstellung zu 8.12.0.
+# Die Vorlage liegt nur im Repository (tools/ gehört nicht ins Update-ZIP). Das Update-Werkzeug ersetzt die
+# produktive compose.yaml nie; Änderungen daran werden immer von Hand und gezielt übernommen.
+# Einziger Unterschied zur produktiven Datei vom 15.11.2026: Der Code-Ordner des Discord-Bots ist hier nur lesbar
+# eingebunden (./discord-app:/app:ro), wie bei den anderen Diensten.
+# Wer diese Vorlage ändert: tools/compose/compose-stand.json mitführen (siehe dort).
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: bcc-db
+        networks:
+      default:
+        aliases:
+          - postgres
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    # Kein cap_drop: ALL beim offiziellen PostgreSQL-Image: der Entrypoint
+    # muss beim ersten Start die persistenten Datenverzeichnis-Rechte setzen
+    # können, bevor er auf den postgres-Benutzer wechselt.
+    mem_limit: 512m
+    shm_size: 256m
+    environment:
+      POSTGRES_DB: "bwk"
+      POSTGRES_USER: "bwk"
+      POSTGRES_PASSWORD_FILE: "/run/secrets/postgres_password"
+    secrets:
+      - postgres_password
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bwk -d bwk"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - max_connections=30
+      - -c
+      - wal_compression=on
+      - -c
+      - synchronous_commit=on
+      
+  # Weboberfläche (Kern): Oberfläche, API, Anmeldung, Rechte, Overlays, Updates-Seite.
+  # Enthält im getrennten Betrieb keinen Twitch-Bot mehr (siehe TWITCH_SERVICE_URL).
+  web:
+    build:
+      context: .
+      dockerfile: docker/node-pg.Dockerfile
+    image: bwk-node-pg:7.2.0
+    container_name: bcc-web
+    working_dir: /app
+    command: node supervisor.js server.js
+    restart: unless-stopped
+    user: "1000:1000"
+    pids_limit: 256
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 384m
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      - ./app:/app:ro
+      - ./public:/public:ro
+      - ./shared:/shared:ro
+      - ./data:/data
+      # Freigaben des Update-Werkzeugs (Arbeitsordner seit 8.12.0 im Projektordner).
+      - ./deploy/work/approvals:/approvals
+
+    secrets:
+      - postgres_password
+      - local_admin_password
+      - twitch_client_secret
+      - internal_service_secret
+
+    environment:
+      TWITCH_CLIENT_ID: "HIER-DIE-TWITCH-CLIENT-ID-EINTRAGEN"
+      TWITCH_CLIENT_SECRET_FILE: "/run/secrets/twitch_client_secret"
+
+      TWITCH_REDIRECT_URI: "https://bot.example.org/auth/twitch/callback"
+      TWITCH_CONNECTION_REDIRECT_URI: "https://bot.example.org/auth/connect/callback"
+
+      PUBLIC_BASE_URL: "https://bot.example.org"
+      TWITCH_CHANNEL_LOGIN: ""   # leer lassen: Kanal-Login wird in der Ersteinrichtung bzw. unter Administration → Twitch-Verbindungen gesetzt
+      PORT: "3000"
+
+      LOCAL_ADMIN_ENABLED: "true"
+      LOCAL_ADMIN_PASSWORD_FILE: "/run/secrets/local_admin_password"
+      LOCAL_NETWORK_PREFIX: "192.168.1."
+      LOCAL_NETWORK_CIDRS: "192.168.1.0/24,127.0.0.1/32"
+      # Nur echte Reverse-Proxy-Peer-IP/CIDR eintragen; leer = Proxyheader werden nicht vertraut.
+      TRUSTED_PROXY_CIDRS: "172.21.0.1"
+      ALLOWED_HOSTS: "bot.example.org,localhost"
+      INTERNAL_SERVICE_SECRET_FILE: "/run/secrets/internal_service_secret"
+      # "null" erlaubt lokale file://-OBS-Browserquellen; öffentliche Overlay-Seite bleibt ebenfalls erlaubt.
+      STUBENKONTROLLE_ALLOWED_ORIGINS: "https://bot.example.org,null"
+
+      DISCORD_SERVICE_URL: "http://discord:3001"
+      DISCORD_SERVICE_LABEL: "bcc-discord"
+      # Getrennter Betrieb: Der Twitch-Bot läuft als eigener Dienst. Ohne diese Zeile läuft er wieder eingebaut.
+      TWITCH_SERVICE_URL: "http://twitch:3002"
+
+      # PostgreSQL V7.2.0. Die bisherigen JSON-Dateien bleiben als unveränderter
+      # Legacy-Stand erhalten und werden beim ersten Start automatisch importiert.
+      STORAGE_BACKEND: "postgres"
+      PGHOST: "db"
+      PGPORT: "5432"
+      PGDATABASE: "bwk"
+      PGUSER: "bwk"
+      DB_PASSWORD_FILE: "/run/secrets/postgres_password"
+
+    depends_on:
+      db:
+        condition: service_healthy
+      discord:
+        condition: service_started
+
+  # Twitch-Bot: EventSub, Chat, Moderation, Timer, Zähler, Clips. Kein veröffentlichter Port.
+  # Startet erst, wenn die Weboberfläche den getrennten Betrieb bestätigt (Schutz vor doppeltem Bot).
+  twitch:
+    build:
+      context: .
+      dockerfile: docker/node-pg.Dockerfile
+    image: bwk-node-pg:7.2.0
+    container_name: bcc-twitch
+    working_dir: /app
+    command: node supervisor.js twitch-server.js
+    restart: unless-stopped
+    user: "1000:1000"
+    pids_limit: 256
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 384m
+
+    volumes:
+      - ./twitch-app:/app:ro
+      - ./shared:/shared:ro
+      # Gemeinsam mit der Weboberfläche: Token-Dateien und Zähler-Puffer liegen hier.
+      - ./data:/data
+
+    secrets:
+      - postgres_password
+      - twitch_client_secret
+      - internal_service_secret
+
+    environment:
+      TWITCH_CLIENT_ID: "HIER-DIE-TWITCH-CLIENT-ID-EINTRAGEN"
+      TWITCH_CLIENT_SECRET_FILE: "/run/secrets/twitch_client_secret"
+      TWITCH_CHANNEL_LOGIN: ""   # leer lassen: Kanal-Login wird in der Ersteinrichtung bzw. unter Administration → Twitch-Verbindungen gesetzt
+
+      TWITCH_SERVICE_PORT: "3002"
+      CONTROL_CENTER_URL: "http://web:3000"
+      DISCORD_SERVICE_URL: "http://discord:3001"
+      INTERNAL_SERVICE_SECRET_FILE: "/run/secrets/internal_service_secret"
+
+      STORAGE_BACKEND: "postgres"
+      PGHOST: "db"
+      PGPORT: "5432"
+      PGDATABASE: "bwk"
+      PGUSER: "bwk"
+      DB_PASSWORD_FILE: "/run/secrets/postgres_password"
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+  discord:
+    build:
+      context: .
+      dockerfile: docker/node-pg.Dockerfile
+    image: bwk-node-pg:7.2.0
+    container_name: bcc-discord
+    working_dir: /app
+    command: node supervisor.js discord-server.js
+    restart: unless-stopped
+    user: "1000:1000"
+    pids_limit: 256
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 384m
+
+    volumes:
+      - ./discord-app:/app:ro
+      - ./shared:/shared:ro
+      - ./discord-data:/data
+
+    secrets:
+      - postgres_password
+      - internal_service_secret
+      - discord_client_secret
+      - discord_bot_token
+      - instagram_access_token
+      - tiktok_client_secret
+
+    environment:
+      DISCORD_CLIENT_ID: ""
+      DISCORD_CLIENT_SECRET_FILE: "/run/secrets/discord_client_secret"
+      DISCORD_BOT_TOKEN_FILE: "/run/secrets/discord_bot_token"
+
+      DISCORD_GUILD_ID: ""
+
+      DISCORD_ROLE_MODERATOR_ID: ""
+      DISCORD_ROLE_BOT_ID: ""
+      DISCORD_ROLE_ADMINISTRATOR_ID: ""
+      DISCORD_ROLE_MEMBER_ID: ""
+
+      DISCORD_CATEGORY_INFORMATIONEN_ID: ""
+      DISCORD_CATEGORY_COMMUNITY_ID: ""
+      DISCORD_CATEGORY_SOCIAL_MEDIA_ID: ""
+      DISCORD_CATEGORY_FUNKRAUM_ID: ""
+      DISCORD_CATEGORY_INTERN_ID: ""
+
+      DISCORD_CHANNEL_RULES_ID: ""
+      DISCORD_CHANNEL_WELCOME_ID: ""
+      DISCORD_CHANNEL_TALK_ID: ""
+      DISCORD_CHANNEL_MEMES_ID: ""
+      DISCORD_CHANNEL_TWITCH_ID: ""
+      DISCORD_CHANNEL_CLIPS_ID: ""
+      DISCORD_CHANNEL_INSTAGRAM_ID: ""
+      DISCORD_CHANNEL_TIKTOK_ID: ""
+      DISCORD_CHANNEL_STABSRAUM_ID: ""
+      DISCORD_CHANNEL_LOG_ID: ""
+
+      DISCORD_CHANNEL_WAITING_ROOM_ID: ""
+      DISCORD_CHANNEL_BWTALK_ID: ""
+
+      DISCORD_REDIRECT_URI: "https://bot.example.org/auth/discord/callback"
+      DISCORD_SERVICE_PORT: "3001"
+      DISCORD_SERVICE_LABEL: "bcc-discord"
+      # Adresse der Weboberfläche im Docker-Netz (für den Discord-Befehl /admin).
+      CONTROL_CENTER_URL: "http://web:3000"
+      INTERNAL_SERVICE_SECRET_FILE: "/run/secrets/internal_service_secret"
+
+      STORAGE_BACKEND: "postgres"
+      PGHOST: "db"
+      PGPORT: "5432"
+      PGDATABASE: "bwk"
+      PGUSER: "bwk"
+      DB_PASSWORD_FILE: "/run/secrets/postgres_password"
+
+      # Social Media Syndication (V6.3.0)
+      # Instagram API with Instagram Login / Professional Account
+      INSTAGRAM_USER_ID: ""
+      INSTAGRAM_ACCESS_TOKEN_FILE: "/run/secrets/instagram_access_token"
+
+      # TikTok Display API
+      TIKTOK_ACCESS_TOKEN: ""
+      # Optional für automatische Token-Erneuerung:
+      TIKTOK_REFRESH_TOKEN: ""
+      TIKTOK_CLIENT_KEY: "sbawlm4azbpscszdvr"
+      TIKTOK_CLIENT_SECRET_FILE: "/run/secrets/tiktok_client_secret"
+
+  # MCP-Zugang (rein lesend): Kennzahlen und Health-Abfragen für einen KI-Assistenten.
+  # Kein veröffentlichter Port, keine Schreib-Mounts, kein Docker-Zugriff. Wer ihn nicht braucht, lässt den
+  # Dienst weg (dann auch "mcp" aus der Dienstliste des Update-Werkzeugs nehmen).
+  mcp:
+    build:
+      context: ./mcp-app
+    image: bcc-mcp:local
+    container_name: bcc-mcp
+    restart: unless-stopped
+    pids_limit: 64
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 256m
+
+    volumes:
+      # Nur für die Versionsangabe (public/version.json).
+      - ./public:/public:ro
+
+    secrets:
+      - mcp_token
+      - mcp_db_password
+
+    environment:
+      MCP_TOKEN_FILE: "/run/secrets/mcp_token"
+      PGPASSWORD_FILE: "/run/secrets/mcp_db_password"
+      PGHOST: "db"
+      PGPORT: "5432"
+      PGDATABASE: "bwk"
+      PGUSER: "bwk_mcp_reader"
+      TWITCH_HEALTH_URL: "http://web:3000/health"
+      TWITCH_HEALTH_HOST: "bot.example.org"
+      DISCORD_HEALTH_URL: "http://discord:3001/health"
+
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('net').connect(3100,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+secrets:
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+  local_admin_password:
+    file: ./secrets/local_admin_password.txt
+  twitch_client_secret:
+    file: ./secrets/twitch_client_secret.txt
+  internal_service_secret:
+    file: ./secrets/internal_service_secret.txt
+  discord_client_secret:
+    file: ./secrets/discord_client_secret.txt
+  discord_bot_token:
+    file: ./secrets/discord_bot_token.txt
+  instagram_access_token:
+    file: ./secrets/instagram_access_token.txt
+  tiktok_client_secret:
+    file: ./secrets/tiktok_client_secret.txt
+  mcp_token:
+    file: ./secrets/mcp_token.txt
+  mcp_db_password:
+    file: ./secrets/mcp_db_password.txt
+
+networks:
+  default:
+    name: bwk-control-center
+    driver: bridge

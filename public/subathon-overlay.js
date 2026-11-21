@@ -1,0 +1,14 @@
+let state=null,offset=0,lastCreditId=null,ticker=null;
+const $=id=>document.getElementById(id);
+function fmt(n){n=Math.max(0,Math.ceil(Number(n)||0));const d=Math.floor(n/86400),h=Math.floor((n%86400)/3600),m=Math.floor((n%3600)/60),s=n%60;return `${d?d+'T ':''}${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`}
+function rem(){if(!state?.exists)return 0;if(state.status==='paused')return state.remainingSeconds||0;if(state.status!=='running'||!state.expectedEndAt)return 0;return Math.max(0,(new Date(state.expectedEndAt).getTime()-(Date.now()+offset))/1000)}
+const KIND={sub:'Abo',gift:'Geschenkabos',bits:'Bits',follow:'Follow'};
+function metaText(){const t=state?.tallies||{};const p=[];if(t.subs)p.push(`${t.subs} Abos`);if(t.gifts)p.push(`${t.gifts} Geschenkabos`);if(t.bits)p.push(`${t.bits} Bits`);if(t.follows)p.push(`${t.follows} Follows`);return p.join(' · ')||'Noch keine Gutschriften'}
+function paint(){if(!state?.exists){$('clock').textContent='00:00:00';$('meta').textContent='Kein Subathon aktiv';return}$('label').textContent=state.label||'SUBATHON';$('clock').style.fontSize=`${state.fontSize||72}px`;const textColor=state.textColor||'#9146ff';$('clock').style.color=textColor;$('label').style.color=textColor;$('meta').style.color=textColor;$('name').style.color=textColor;$('bar').style.background=state.accentColor||'#9146ff';$('plus').style.color=state.accentColor||textColor;$('clock').textContent=fmt(rem());$('meta').textContent=state.status==='paused'?'PAUSIERT':state.status==='ended'?'BEENDET':metaText();}
+function update(s){state=s;offset=new Date(s.serverNow||Date.now()).getTime()-Date.now();if(s.lastCredit?.id&&s.lastCredit.id!==lastCreditId){lastCreditId=s.lastCredit.id;if(Number(s.lastCredit.seconds)>0){$('plus').textContent=`+${fmt(s.lastCredit.seconds)}`;$('plus').classList.remove('pop');void $('plus').offsetWidth;$('plus').classList.add('pop');$('name').textContent=s.showNames&&s.lastCredit.userName?s.lastCredit.userName:'';setTimeout(()=>{$('name').textContent=''},2500)}}paint()}
+async function bootstrap(){try{const r=await fetch('/api/subathon/public/state',{cache:'no-store'});update(await r.json())}catch{}}
+function connect(){const es=new EventSource('/api/subathon/public/stream');es.addEventListener('state',ev=>{try{update(JSON.parse(ev.data));$('offline').style.display='none'}catch{}});es.onopen=()=>{$('offline').style.display='none'};es.onerror=()=>{$('offline').style.display='block'};}
+bootstrap();connect();ticker=setInterval(paint,250);
+
+// 9.20.1: optionales Logo aus den Bildplätzen der Installation (Administration → Profil & Branding)
+fetch('/api/branding',{cache:'no-store'}).then(r=>r.json()).then(b=>{const f=b&&b.images&&b.images.subathonLogo;const el=document.getElementById('logo');if(el&&f&&f.url){el.src=f.url;el.hidden=false}}).catch(()=>{});

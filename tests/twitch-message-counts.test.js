@@ -1,0 +1,16 @@
+const appSource=require("./helpers/app-source");
+"use strict";
+const fs=require("fs"),path=require("path"),assert=require("assert");
+const root=path.resolve(__dirname,"..");
+const pg=fs.readFileSync(path.join(root,"shared/pg-sync-store.js"),"utf8");
+const app=appSource();
+const ui=fs.readFileSync(path.join(root,"public/app.js"),"utf8");
+assert(pg.includes("SCHEMA_VERSION = 17"));
+assert(pg.includes("twitch_message_counts"));
+assert(pg.includes("twitch_message_count_batches"));
+assert(app.includes("queueMessageCount(ev)"));
+assert(app.includes("setInterval(flushMessageCounts,20_000)"));
+assert(app.includes('a?.type==="bot"'));
+assert(ui.includes("Chatnachrichten"));
+assert(ui.includes("messages_desc"));
+console.log("twitch-message-counts.test.js: OK");

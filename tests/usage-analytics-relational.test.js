@@ -1,0 +1,23 @@
+const appSource=require("./helpers/app-source");
+"use strict";
+const fs=require("fs");
+const path=require("path");
+const pg=fs.readFileSync(path.join(__dirname,"../shared/pg-sync-store.js"),"utf8");
+const server=appSource();
+const app=fs.readFileSync(path.join(__dirname,"../public/app.js"),"utf8");
+function ok(c,m){if(!c)throw new Error(m);}
+ok(pg.includes("const SCHEMA_VERSION = 17"),"Schema 17 fehlt");
+ok(pg.includes("CREATE TABLE IF NOT EXISTS twitch_usage_stats"),"Usage-Stats-Tabelle fehlt");
+ok(pg.includes("CREATE TABLE IF NOT EXISTS discord_analytics_snapshots"),"Discord-Analytics-Tabelle fehlt");
+ok(pg.includes("relational-usage-stats-discord-analytics"),"Migration 13 fehlt");
+ok(pg.includes('case "usage_stats_record"'),"atomare Usage-Statistik fehlt");
+ok(pg.includes('case "discord_analytics_upsert"'),"Analytics-Upsert fehlt");
+ok(server.includes("importUsageStatsIfEmpty"),"Usage-Legacy-Import fehlt");
+ok(server.includes("importDiscordAnalyticsIfEmpty"),"Analytics-Legacy-Import fehlt");
+ok(server.includes("pgStore.recordUsageStat"),"Usage-Statistik wird nicht relational geschrieben");
+ok(server.includes("pgStore.upsertDiscordAnalyticsSnapshot"),"Analytics-Snapshot wird nicht relational geschrieben");
+ok(server.includes("pgStore.replaceUsageStats(restoredStats)"),"Usage-Restore fehlt");
+ok(server.includes("pgStore.replaceDiscordAnalytics(restoredAnalytics)"),"Analytics-Restore fehlt");
+ok(app.includes("Persistenzmodell V7.2.20 · Abschlussrunde"),"Abschlussdiagnose fehlt");
+ok(app.includes("DB-Größe"),"Datenbankgrößen-Diagnose fehlt");
+console.log("usage-analytics-relational.test.js: OK");

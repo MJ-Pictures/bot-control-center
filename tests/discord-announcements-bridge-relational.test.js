@@ -1,0 +1,10 @@
+const appSource=require("./helpers/app-source");
+"use strict";
+const fs=require("fs");const path=require("path");const root=path.resolve(__dirname,"..");
+const pg=fs.readFileSync(path.join(root,"shared/pg-sync-store.js"),"utf8");
+const discord=fs.readFileSync(path.join(root,"discord-app/discord-server.js"),"utf8");
+const twitch=appSource();
+for(const s of ["discord_announcements_meta","discord_announcement_items","discord_bridge_meta","discord_bridge_queue","SCHEMA_VERSION = 17"])if(!pg.includes(s))throw new Error(`Fehlt: ${s}`);
+if(!discord.includes("putDiscordAnnouncementsState"))throw new Error("Discord-Ankündigungen nicht relational verdrahtet");
+if(!twitch.includes("putDiscordBridgeState"))throw new Error("Discord-Bridge nicht relational verdrahtet");
+console.log("discord-announcements-bridge-relational.test.js: OK");

@@ -1,0 +1,12 @@
+const fs=require('fs');
+const assert=require('assert');
+const discord=fs.readFileSync('discord-app/discord-server.js','utf8');
+const ui=fs.readFileSync('public/app.js','utf8');
+assert(discord.includes('process.env.DISCORD_ROLE_OVWA_ID'));
+assert(discord.includes('process.env.DISCORD_ROLE_S1_ID'));
+assert(discord.includes('process.env.DISCORD_ROLE_REKRUT_ID'));
+assert(discord.includes('roleById(IDS.roles.member)?.name'));
+assert(discord.includes('roleById(IDS.roles.administrator)?.name'));
+assert(ui.includes('d.catalog?.roles?.member?.name'));
+assert(ui.includes('d.catalog?.roles?.administrator?.name'));
+console.log('discord-role-rename-safety.test.js: OK');

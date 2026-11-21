@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Follower-Alert</title>
+<style>
+@font-face{font-family:"Akzidenz Grotesk Bold";src:local("Akzidenz Grotesk Bold"),local("Akzidenz-Grotesk BQ Bold"),local("Akzidenz-Grotesk Pro Bold");font-weight:700;font-display:swap}
+:root{--gold:#FAB70A}*{box-sizing:border-box}
+html,body{width:100%;height:100%;margin:0;background:transparent;overflow:hidden;font-family:"Akzidenz Grotesk Bold","Arial Black",Arial,sans-serif;font-weight:700}
+#stage{width:100%;height:100%;display:grid;place-items:center}
+/* Banner und Linien bleiben unverändert; ausschließlich #name animiert. */
+#banner{position:relative;width:960px;height:175px;flex:none;visibility:hidden;opacity:0;transform-origin:center center}
+#banner.visible{visibility:visible;opacity:1}
+#art{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none}
+/* 9.14.0: ohne Banner-Bild (neutrale Installation ohne Upload) ein schlichter Hintergrund */
+#banner.noart{background:linear-gradient(135deg,rgba(15,20,26,.94),rgba(28,35,44,.9));border:3px solid var(--gold);border-radius:14px}
+#banner.noart #art{display:none}
+#banner.noart #name{left:4%;top:20%;height:60%}
+#name{position:absolute;left:29%;right:4%;top:43%;height:43%;display:flex;align-items:center;justify-content:center;text-align:center;overflow:hidden;white-space:nowrap;color:var(--gold);font-size:55px;line-height:1.05;letter-spacing:.01em;text-shadow:0 2px 5px #000;opacity:0;transition:opacity 850ms ease-in-out}
+#name.shown{opacity:1}
+@media (prefers-reduced-motion:reduce){#name{transition-duration:0ms}}
+</style></head><body>
+<div id="stage"><div id="banner" aria-live="polite"><img id="art" src="/branding/image/banner" alt=""><div id="name"></div></div></div>
+<script src="/follower-alert-overlay.js"></script></body></html>

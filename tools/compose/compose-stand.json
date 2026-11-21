@@ -1,0 +1,8 @@
+{
+  "hinweis": "Stand der Compose-Vorlage. Ändert sich tools/compose/compose.yaml, muss sha256 hier angepasst und entschieden werden, ob die produktive compose.yaml dieselbe Änderung braucht. Wenn ja: Grund in .github/release-tools/manual-reasons.txt eintragen (das Release wird dann nicht automatisch installiert) und eine Umstellungsanleitung beilegen.",
+  "sha256": "408976d3185a281fd4e9b7ac001bbe594e4042f916c706a7ea7f3bdc87063576",
+  "zuletzt_geaendert_in": "9.16.0",
+  "produktive_aenderung_noetig": false,
+  "compose_im_hauptordner_sha256": "518143c268b492f7f206e5abdf2705cbb96f3ed82e47d594a3387b2daac9a20e",
+  "compose_im_hauptordner": "Alte Ein-Container-Vorlage, bewusst unverändert seit 8.6.x: Sie liegt im Update-ZIP, und jede Änderung daran stuft ein Release als 'nur manuell' ein. Sie wird mit dem nächsten Release ersetzt, das ohnehin von Hand eingespielt werden muss."
+}

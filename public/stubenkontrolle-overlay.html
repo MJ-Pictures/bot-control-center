@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Stubenkontrolle Overlay</title>
+<style>
+@font-face{font-family:"Akzidenz Grotesk Bold";src:local("Akzidenz Grotesk Bold"),local("Akzidenz-Grotesk BQ Bold"),local("Akzidenz-Grotesk Pro Bold");font-weight:700;font-display:swap}
+:root{--gold:rgb(250,183,10)}
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;font-family:"Akzidenz Grotesk Bold","Arial Black",Arial,sans-serif;font-weight:700;color:var(--gold)}
+.stage{position:relative;width:1920px;height:1080px;transform-origin:top left;overflow:hidden}
+.panel{position:absolute;z-index:3;left:80px;bottom:60px;width:1180px;padding:16px 26px 14px;background:linear-gradient(135deg,rgba(15,20,26,.94),rgba(28,35,44,.9));border:2px solid rgba(250,183,10,.8);clip-path:polygon(0 0,97% 0,100% 22%,100% 100%,3% 100%,0 78%);overflow:hidden;opacity:0;transform:translateY(30px);transition:opacity .35s,transform .35s,bottom .35s}
+.panel.show{opacity:1;transform:none}
+.stage.reg .panel{bottom:140px}
+.stage.reg.crowd .panel{bottom:170px}
+.accent{color:var(--gold)}
+h1{font-size:30px;margin:0 0 4px;letter-spacing:.01em}
+.panel>*{position:relative;z-index:1}
+.meta{font-size:17px;display:flex;gap:18px;flex-wrap:wrap}
+.people{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:10px;max-height:236px;overflow:hidden}
+.person{background:rgba(255,255,255,.08);padding:5px 9px;border-radius:6px;font-size:14px;line-height:1.25;border-left:4px solid #777;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.person.passed{border-left-color:#5dcc7a}
+.person.caught{border-left-color:#e15b5b}
+/* 8.9.3: Auflösung farbig – Gewinner grün, Erwischte rot (Karten und Namen im Ergebnistext) */
+:root{--win:#5dcc7a;--lose:#e15b5b}
+.result .person.passed{color:var(--win)}
+.result .person.caught{color:var(--lose)}
+.who.win{color:var(--win)}
+.who.lose{color:var(--lose)}
+.people.compact{grid-template-columns:repeat(8,minmax(0,1fr));gap:5px}
+.people.compact .person{font-size:12px;padding:4px 7px;border-left-width:3px}
+.pageinfo{font-size:13px;opacity:.75;margin-top:6px;padding-left:22px}
+.connection{color:#fff;position:absolute;z-index:9;right:20px;top:20px;font:18px system-ui;background:rgba(0,0,0,.45);padding:6px 10px;border-radius:6px}
+.connection.ok{color:#8ff0a4}
+.panel>.polygon{position:absolute;z-index:0;inset:0;width:100%;height:100%;object-fit:cover;opacity:.22;pointer-events:none}
+.countdown{font-size:62px;font-weight:700;color:var(--gold)}
+.result-title{font-size:18px;margin-top:5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.hidden{display:none}
+
+/* ---- Ergebnis-Clip: Kontrollfigur (WebM mit Alphakanal), steht hinter dem Panel ---- */
+#verdict,#verdictSvg,#verdictImg{position:absolute;z-index:2;right:70px;bottom:400px;width:420px;height:560px;object-fit:contain;opacity:0;transition:opacity .25s;pointer-events:none}
+#verdict.on,#verdictSvg.on,#verdictImg.on{opacity:1}
+#verdictSvg svg{width:100%;height:100%;display:block}
+#verdict.hold,#verdictSvg.hold,#verdictImg.hold{animation:breathe 2.6s ease-in-out infinite alternate;transform-origin:50% 100%}
+@keyframes breathe{from{transform:scale(1)}to{transform:scale(1.018)}}
+
+/* ---- Männchen am unteren Bildrand (Anmeldung) ---- */
+#walkers{position:absolute;z-index:4;left:0;top:0;width:1920px;height:1080px;pointer-events:none}
+.walker{position:absolute;left:0;top:0;width:96px;height:128px;transition:opacity .45s;transform-origin:0 0}
+.walker.small .tag{font-size:16px;bottom:116px}
+.walker.leaving{opacity:0}
+.walker .tag{font-size:15px !important;color:var(--gold);position:absolute;left:50%;bottom:118px;transform:translateX(-50%);white-space:nowrap;font-size:20px;font-weight:700;padding:2px 9px;border-radius:6px;background:rgba(15,20,26,.78);border:1px solid rgba(250,183,10,.7);max-width:200px;overflow:hidden;text-overflow:ellipsis}
+.walker .man{position:absolute;left:0;top:0;width:96px;height:128px;background:url("/stubenkontrolle/maennchen-sprites.png") 0 0/768px 768px no-repeat;animation:walkcycle .72s steps(8) infinite}
+@keyframes walkcycle{from{background-position-x:0}to{background-position-x:-768px}}
+</style></head><body>
+<div id="stage" class="stage">
+  <video id="verdict" muted playsinline preload="auto"></video>
+  <div id="verdictSvg"></div>
+  <img id="verdictImg" alt="">
+  <div id="conn" class="connection hidden"></div>
+  <div id="panel" class="panel">
+    <img class="polygon" src="/stubenkontrolle/polygon.svg" alt="">
+    <h1 id="title">Stubenkontrolle</h1>
+    <div class="meta"><span id="countdown"></span><span id="count"></span><span id="factor"></span><span id="command"></span></div>
+    <div id="resultTitle" class="result-title"></div>
+    <div id="phrase" class="result-title accent"></div>
+    <div id="people" class="people"></div>
+    <div id="pageinfo" class="pageinfo"></div>
+  </div>
+  <div id="walkers"></div>
+</div>
+<script src="/stubenkontrolle-spiess.js"></script>
+<script src="/stubenkontrolle-overlay.js"></script>
+</body></html>

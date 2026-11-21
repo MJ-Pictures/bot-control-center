@@ -1,0 +1,14 @@
+"use strict";
+const assert=require("assert");
+const fs=require("fs");
+const path=require("path");
+const pg=fs.readFileSync(path.join(__dirname,"..","shared","pg-sync-store.js"),"utf8");
+const discord=fs.readFileSync(path.join(__dirname,"..","discord-app","discord-server.js"),"utf8");
+assert(pg.includes("CREATE TABLE IF NOT EXISTS discord_moderation_users"));
+assert(pg.includes("CREATE TABLE IF NOT EXISTS discord_moderation_recent"));
+assert(pg.includes("discord_moderation_put_state"));
+assert(pg.includes("relational-discord-moderation-state"));
+assert(discord.includes("getDiscordModerationState"));
+assert(discord.includes("putDiscordModerationState"));
+assert(discord.includes("file===MODERATION_STATE_FILE?(pgStore.getDiscordModerationState()?.state"));
+console.log("moderation-relational.test.js: OK");

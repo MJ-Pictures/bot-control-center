@@ -1,0 +1,17 @@
+{
+  "name": "bcc-mcp-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "node --check server.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.4.0",
+    "@modelcontextprotocol/node": "2.1.2",
+    "pg": "^8.13.0",
+    "zod": "^4.0.0"
+  },
+  "description": "Rein lesender MCP-Zugang des Bot Control Centers. Die Version ist die des Control Centers (public/version.json)."
+}

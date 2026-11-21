@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bot Control Center</title>
+<link rel="icon" href="/favicon-default.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <div class="brand-title"><img id="brandLogo" class="brand-logo" alt="" hidden><strong id="brandStrong">Bot Control Center</strong><span id="brandRest"></span></div>
+  <div class="header-actions">
+    <button id="globalSearchOpen" type="button" class="global-search-open" aria-label="Globale Suche öffnen">⌕ Suche <kbd>Ctrl K</kbd></button>
+    <div id="user"></div>
+  </div>
+</header>
+<div id="globalSearchOverlay" class="global-search-overlay hidden" role="presentation">
+ <section class="global-search-panel" role="dialog" aria-modal="true" aria-label="Globale Suche">
+  <div class="global-search-head"><input type="search" id="globalSearchInput" placeholder="Funktionen oder Discord-Mitglieder suchen …" autocomplete="off" aria-label="Suche"><button type="button" id="globalSearchClose" class="secondary" aria-label="Suche schließen">✕</button></div>
+  <div id="globalSearchResults" class="global-search-results" role="status" aria-live="polite"></div>
+ </section>
+</div>
+<main>
+<section id="login" class="card hidden">
+  <h1>Bot Control Center</h1>
+  <p>Melde dich mit dem für deinen Backend-Zugang freigegebenen Twitch- oder Discord-Konto an.</p>
+  <div class="login-provider-row">
+    <a class="btn" href="/auth/login">Mit Twitch anmelden</a>
+    <a class="btn discord-btn" href="/auth/discord">Mit Discord anmelden</a>
+  </div>
+  <p class="hint">Eine Discord-Rolle allein schaltet das Backend nicht frei. Discord-Backend-Zugang wird separat durch einen globalen Owner vergeben.</p>
+
+  <div id="localLoginBox" class="local-login hidden">
+    <hr>
+    <h3>Lokaler Admin-Login</h3>
+    <p class="hint">Nur aus dem lokalen Netz verfügbar.</p>
+    <div class="row">
+      <input id="localPassword" type="password" placeholder="Admin-Passwort" autocomplete="current-password">
+      <button id="localLoginBtn">Lokal anmelden</button>
+    </div>
+    <div id="localLoginError" class="error"></div>
+  </div>
+</section>
+
+<!-- 9.11.0: Ersteinrichtung (nur solange sie offen ist; geschützt durch den Einrichtungscode aus dem Container-Protokoll) -->
+<section id="setup" class="card hidden setup-wizard" aria-labelledby="setupTitle">
+  <h1 id="setupTitle">Ersteinrichtung</h1>
+  <p>Willkommen! Bevor das Control Center genutzt werden kann, werden hier die Grunddaten festgelegt. Alles lässt sich später in den jeweiligen Bereichen der <strong>Administration</strong> (Adresse &amp; Anmeldung, Profil &amp; Branding, Twitch-Verbindungen) ändern.</p>
+  <div id="setupForm"></div>
+  <div id="setupError" class="error" role="alert"></div>
+  <div id="setupDone" class="hidden"></div>
+</section>
+
+<div id="app" class="hidden">
+  <div class="mobile-nav-bar">
+    <button id="mobileMenuBtn" class="mobile-menu-btn" type="button" aria-label="Navigation öffnen" aria-expanded="false">☰</button>
+    <div class="mobile-nav-text">
+      <strong id="mobileNavTitle">Dashboard</strong>
+      <span id="mobileNavSubtitle"></span>
+    </div>
+  </div>
+
+  <div class="app-shell">
+    <div id="sidebarBackdrop" class="sidebar-backdrop" aria-hidden="true"></div>
+
+    <aside id="sidebar" class="sidebar" aria-label="Hauptnavigation">
+      <div class="sidebar-top">
+        <span class="sidebar-title">Navigation</span>
+        <div id="platformSwitch" class="platform-switch" role="tablist" aria-label="Plattform">
+          <button type="button" class="platform-switch-btn active" data-platform="twitch" role="tab" aria-selected="true">
+            <span class="platform-switch-icon twitch-icon" aria-hidden="true">T</span>
+            <span class="platform-switch-label">Twitch</span>
+          </button>
+          <button type="button" class="platform-switch-btn" data-platform="discord" role="tab" aria-selected="false">
+            <span class="platform-switch-icon discord-icon" aria-hidden="true">D</span>
+            <span class="platform-switch-label">Discord</span>
+          </button>
+        </div>
+      </div>
+
+      <nav id="mainNav" class="sidebar-nav" aria-label="Bereiche"></nav>
+      <nav id="favoriteLinks" class="favorite-links" aria-label="Meine Favoriten" hidden></nav>
+
+      <button id="sidebarCollapseBtn" class="sidebar-collapse" type="button" aria-label="Navigation einklappen">
+        <span class="sidebar-collapse-icon">‹</span><span class="sidebar-collapse-label">Navigation einklappen</span>
+      </button>
+    </aside>
+
+    <div class="workspace">
+      <div id="sectionNavHeader" class="section-nav-header">
+        <div class="section-nav-title"><span id="sectionGroupTitle">Dashboard</span><button id="favoriteToggle" class="favorite-toggle" aria-label="Als Favorit markieren" title="Als Favorit markieren" hidden>☆</button></div>
+        <nav id="subTabs" class="sub-tabs" aria-label="Bereichsnavigation"></nav>
+      </div>
+<section id="dashboard" class="pane">
+  <div class="status-grid">
+    <span id="botStatusCards" class="status-cards-inline"></span>
+    <div class="status-card"><span>Twitch App Token</span><strong id="st-app-token">Prüfe …</strong></div>
+    <div class="status-card"><span>EventSub</span><strong id="st-eventsub">Prüfe …</strong></div>
+  </div>
+
+  <div class="card">
+    <div class="title"><h3>Aktive Funktionen</h3><span class="hint">aus der aktuellen Konfiguration</span></div>
+    <div id="dashboardSummary" class="summary-grid"></div>
+  </div>
+
+  <div id="localResetCard" class="card compact-card warning-card hidden">
+    <div class="title">
+      <div>
+        <h3>Konfiguration zurücksetzen</h3>
+        <p class="hint">Löscht Commands, Timer, Begrüßungen, Legacy-Wortliste und Auto-Replies. Der zentrale V8-Wortfilter, Tokens und Activity Board bleiben erhalten; Follow und Raid werden deaktiviert.</p>
+      </div>
+      <button id="resetConfigBtn" class="danger-strong" type="button">Alles auf 0 setzen</button>
+    </div>
+  </div>
+
+  <div id="testMessageCard" class="card compact-card">
+    <h3>Testnachricht</h3>
+    <div class="row"><select id="testBot"></select><input id="testMessage" value="Bot-Test erfolgreich. 🫡"><button data-click="testMessage">Senden</button></div>
+  </div>
+</section>
+
+<section id="commands" class="pane hidden"></section>
+<section id="timers" class="pane hidden"></section>
+<section id="events" class="pane hidden"></section>
+<section id="watchtime" class="pane hidden"></section>
+<section id="followage" class="pane hidden"></section>
+<section id="chatters" class="pane hidden"></section>
+<section id="team" class="pane hidden"></section>
+<section id="lurk" class="pane hidden"></section>
+<section id="blocked" class="pane hidden"></section>
+<section id="wordFilter" class="pane hidden"></section>
+<section id="moderation" class="pane hidden"></section>
+<section id="autoreplies" class="pane hidden"></section>
+<section id="statistics" class="pane hidden"></section>
+<section id="eventprofiles" class="pane hidden"></section>
+<section id="stubenkontrolle" class="pane hidden"></section>
+<section id="followathon" class="pane hidden"></section>
+<section id="subathon" class="pane hidden"></section>
+<section id="followerAlert" class="pane hidden"></section>
+<section id="giveaway" class="pane hidden"></section>
+<section id="clips" class="pane hidden"></section>
+<section id="activity" class="pane hidden"></section>
+<section id="discordOverview" class="pane hidden"></section>
+<section id="discordChannels" class="pane hidden"></section>
+<section id="discordChannelTimes" class="pane hidden"></section>
+<section id="discordRoles" class="pane hidden"></section>
+<section id="discordMembers" class="pane hidden"></section>
+<section id="discordAnnouncements" class="pane hidden"></section>
+<section id="discordLevelsystem" class="pane hidden"></section>
+<section id="discordLevelXpRules" class="pane hidden"></section>
+<section id="discordLevelPlayers" class="pane hidden"></section>
+<section id="discordLevelRanks" class="pane hidden"></section>
+<section id="discordLevelMissions" class="pane hidden"></section>
+<section id="discordLevelStatistics" class="pane hidden"></section>
+<section id="discordModeration" class="pane hidden"></section>
+<section id="discordModerationLog" class="pane hidden"></section>
+<section id="discordSanctions" class="pane hidden"></section>
+<section id="discordUserHistory" class="pane hidden"></section>
+<section id="discordReports" class="pane hidden"></section>
+<section id="discordEmergency" class="pane hidden"></section>
+<section id="socialOverview" class="pane hidden"></section>
+<section id="socialInstagram" class="pane hidden"></section>
+<section id="socialTikTok" class="pane hidden"></section>
+<section id="socialPublications" class="pane hidden"></section>
+<section id="socialSettings" class="pane hidden"></section>
+<section id="discordWelcome" class="pane hidden"></section>
+<section id="discordInvite" class="pane hidden"></section>
+<section id="discordAccess" class="pane hidden"></section>
+<section id="users" class="pane hidden"></section>
+<section id="loginlogs" class="pane hidden"></section>
+<section id="connections" class="pane hidden"></section>
+<section id="system" class="pane hidden"></section>
+<section id="database" class="pane hidden"></section>
+<section id="backup" class="pane hidden"></section>
+<section id="updates" class="pane hidden"></section>
+<section id="discordLogsAdmin" class="pane hidden"></section>
+<section id="publicWebsites" class="pane hidden"></section>
+<section id="modules" class="pane hidden"></section>
+<section id="addressLogin" class="pane hidden"></section>
+<section id="profileBranding" class="pane hidden"></section>
+<section id="help" class="pane hidden"></section>
+
+<div class="savebar"><span id="saveState">Keine ungespeicherten Änderungen</span><button id="saveBtn" data-click="saveAll">Änderungen speichern</button></div>
+    </div>
+  </div>
+</div>
+</main>
+<div id="confirmModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmText">
+  <div class="modal-card">
+    <h3 id="confirmTitle">Bestätigen</h3>
+    <p id="confirmText">Aktion wirklich ausführen?</p>
+    <div class="modal-actions">
+      <button id="confirmNo">ABBRECHEN</button>
+      <button id="confirmYes">BESTÄTIGEN</button>
+    </div>
+  </div>
+</div>
+
+
+<footer class="app-footer">
+  <span id="brandFooter">Bot Control Center</span>
+  <span class="footer-separator">•</span>
+  <span id="footerLinks"><span>Erstellt von <strong>Mario Janssen</strong></span></span>
+  <span class="footer-separator">•</span>
+  <span>Version <strong id="appVersion">…</strong></span>
+</footer>
+
+<script src="/app.js"></script>
+</body></html>

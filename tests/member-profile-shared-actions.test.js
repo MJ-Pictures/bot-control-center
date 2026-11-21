@@ -1,0 +1,30 @@
+const appSource=require("./helpers/app-source");
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const ui=fs.readFileSync(path.join(root,'public/app.js'),'utf8');
+const backend=appSource();
+test('Mitgliederprofil und Minigame nutzen denselben XP-Schreibendpunkt',()=>{
+  const profile=ui.slice(ui.indexOf('async function showDiscordMemberProfile'),ui.indexOf('async function changeDiscordBackendAccess'));
+  const minigame=ui.slice(ui.indexOf('async function renderDiscordLevelsystem'));
+  assert.match(profile,/updateDiscordMemberXp\(member\.id,mode/);
+  assert.match(minigame,/updateDiscordMemberXp\(selected\.id/);
+  const shared=ui.slice(ui.indexOf('async function updateDiscordMemberXp'),ui.indexOf('const levelRequest='));
+  assert.match(shared,/levelRequest\('\/api\/discord\/levelsystem\/xp'/);
+  assert.match(shared,/Number\.isSafeInteger/);
+  assert.match(shared,/\['add','subtract','set'\]/);
+  assert.match(backend,/\/api\/discord\/levelsystem\/xp/);
+  assert.match(backend,/discord\.moderation\.edit/);
+});
+test('Profil nutzt gemeinsame Rollen-/Backend-Endpunkte und geschützten gezielten Moderationsabruf',()=>{
+  const profile=ui.slice(ui.indexOf('async function showDiscordMemberProfile'),ui.indexOf('async function renderDiscordRoles'));
+  assert.match(profile,/changeDiscordMemberRole\(b\)/);
+  assert.match(profile,/changeDiscordBackendAccess\(b\)/);
+  assert.match(profile,/\/api\/discord\/moderation\/member-history/);
+  assert.match(backend,/\/api\/discord\/moderation\/member-history/);
+  assert.match(backend,/requireGlobalAdmin\(req,res\)/);
+  assert.match(backend,/requireCapability\(req,res,"discord\.moderation\.view"\)/);
+});

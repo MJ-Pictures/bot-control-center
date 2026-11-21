@@ -1,0 +1,18 @@
+data/*
+!data/.gitkeep
+discord-data/*
+!discord-data/.gitkeep
+postgres-data/
+backups/
+secrets/*
+!secrets/README.txt
+.env
+*.zip
+node_modules/
+.DS_Store
+__pycache__/
+*.pyc
+# MCP-Dienst: nur Quellcode ins Repository, nie Betriebsdaten oder Geheimnisse
+mcp-app/node_modules/
+mcp-app/deploy-work/
+github_token

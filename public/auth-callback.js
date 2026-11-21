@@ -1,0 +1,10 @@
+try{
+  if(window.opener){
+    window.opener.postMessage({type:"bwk-auth-linked"},"*");
+    setTimeout(()=>window.close(),1200);
+  }else{
+    setTimeout(()=>location.replace("/"),1500);
+  }
+}catch{
+  setTimeout(()=>location.replace("/"),1500);
+}

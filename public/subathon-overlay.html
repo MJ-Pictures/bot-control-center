@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Subathon Overlay</title>
+<style>
+@font-face{font-family:"Overlay Heading";src:local("Akzidenz Grotesk Bold"),local("Akzidenz-Grotesk BQ Bold"),local("Akzidenz-Grotesk Pro Bold"),local("AkzidenzGroteskBQ-Bold");font-style:normal;font-weight:700;font-display:swap}
+:root{--accent:#9146ff;--outline:#000;--outline-width:1.5px}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;color:var(--accent);font-family:"Overlay Heading","Arial Black","Arial Bold",Arial,Helvetica,sans-serif;font-weight:700}*{box-sizing:border-box}
+#wrap{height:100%;display:flex;align-items:center;justify-content:center;text-align:center;padding:12px}
+#box{position:relative;min-width:520px;max-width:96vw}.label,.clock,.meta,#name,#plus{font-family:inherit;font-weight:700;-webkit-text-stroke:var(--outline-width) var(--outline);paint-order:stroke fill;text-shadow:0 2px 3px rgba(0,0,0,.55)}.label{font-size:24px;letter-spacing:.14em}.clock{font-size:72px;font-variant-numeric:tabular-nums;line-height:1.05}.meta{font-size:18px;margin-top:5px}.accent{height:5px;border-radius:8px;margin:8px auto 0;width:82%}
+#plus{position:absolute;right:-20px;top:20%;font-size:34px;opacity:0;transform:translateY(12px);transition:.2s}.pop{animation:pop 1.4s ease-out}@keyframes pop{0%{opacity:0;transform:translateY(12px) scale(.85)}15%{opacity:1;transform:translateY(0) scale(1.08)}75%{opacity:1}100%{opacity:0;transform:translateY(-18px)}}
+#logo{display:block;max-height:120px;max-width:200px;margin:0 auto 6px;object-fit:contain}#logo[hidden]{display:none}#offline{position:absolute;top:8px;right:10px;padding:5px 9px;border-radius:8px;background:rgba(120,0,0,.8);color:#fff;font-family:"Overlay Heading","Arial Black",Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;display:none;text-shadow:0 1px 2px rgba(0,0,0,.8)}
+#name{font-size:18px;min-height:22px;margin-top:4px}
+</style></head><body><div id="offline">VERBINDUNG UNTERBROCHEN</div><div id="wrap"><div id="box"><img id="logo" alt="" hidden><div id="label" class="label">SUBATHON</div><div id="clock" class="clock">00:00:00</div><div id="name"></div><div id="meta" class="meta"></div><div id="bar" class="accent"></div><div id="plus">+1:00</div></div></div>
+<script src="/subathon-overlay.js"></script></body></html>
