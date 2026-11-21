@@ -692,6 +692,135 @@ class EchtesDeployWerkzeug(Base):
             self.run_pull()
 
 
+class OhneToken(Base):
+    """1.9.0 (Stufe 3): Betrieb aus einem öffentlichen Repository ohne Token."""
+
+    def setUp(self):
+        super().setUp()
+        cfg = self.work / "pull" / "config.json"
+        d = json.loads(cfg.read_text()); d.pop("token_file"); cfg.write_text(json.dumps(d))
+
+    def test_release_wird_ohne_token_gemeldet_und_installiert(self):
+        blob = self.fake.publish("9.0.1")
+        self.assertEqual(self.run_pull(), 0)
+        n = self.pending("9.0.1")
+        self.assertEqual(n["status"], "awaiting-approval")
+        self.assertEqual(n["sha256"], hashlib.sha256(blob).hexdigest())
+        self.assertTrue(all(r[2] is None for r in self.fake.requests), "nie ein Authorization-Header")
+        self.approve("9.0.1")
+        self.run_pull()
+        self.assertEqual(self.result("9.0.1")["status"], "deployed")
+
+    def test_status_nennt_quelle_ohne_token(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            bwk_pull.main(["--work", str(self.work), "status"])
+        self.assertIn("ohne Token", out.getvalue())
+
+    def test_abfragelimit_meldung(self):
+        t = bwk_pull.http_error_text(403, "api.github.com", "0", False)
+        self.assertIn("60 Abfragen pro Stunde", t)
+        self.assertIn("Abfragelimit", bwk_pull.http_error_text(429, "api.github.com", "0", True))
+        self.assertNotIn("60 Abfragen", bwk_pull.http_error_text(429, "api.github.com", "0", True))
+        self.assertIn("privates Repository", bwk_pull.http_error_text(404, "api.github.com", None, False))
+        self.assertEqual(bwk_pull.http_error_text(500, "api.github.com", None, False), "HTTP 500 von api.github.com")
+
+
+class Init(unittest.TestCase):
+    COMPOSE = """services:
+  db:
+    image: postgres:17
+    container_name: bcc-db
+    environment:
+      POSTGRES_DB: "bwk"
+      POSTGRES_USER: "bwk"   # Kommentar
+  web:
+    container_name: bcc-web
+  twitch:
+    container_name: bcc-twitch
+networks:
+  default:
+    name: x
+"""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="bwk-init-test-"))
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.project = self.tmp / "proj"; self.project.mkdir()
+        (self.project / "compose.yaml").write_text(self.COMPOSE)
+        (self.project / "VERSION").write_text("9.0.0\n")
+        self.work = self.tmp / "work"; self.work.mkdir()
+
+    def init(self, *extra):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rc = bwk_pull.main(["--work", str(self.work), *extra, "init"])
+        self.assertEqual(rc, 0)
+        return json.loads((self.work / "pull" / "config.json").read_text()), out.getvalue()
+
+    def test_compose_erkennung_vorlage(self):
+        d = bwk_pull.compose_defaults(self.project / "compose.yaml")
+        self.assertEqual(d, {"services": ["web", "twitch"], "db_container": "bcc-db", "db_user": "bwk", "db_name": "bwk"})
+
+    def test_compose_erkennung_alte_namen_und_fehlende_datei(self):
+        (self.tmp / "alt.yaml").write_text("services:\n  postgres:\n    container_name: alt-pg\n    environment:\n"
+                                          "      POSTGRES_USER: u1\n      POSTGRES_DB: d1\n  twitchbot:\n    image: x\n  discordbot:\n    image: y\n")
+        self.assertEqual(bwk_pull.compose_defaults(self.tmp / "alt.yaml"),
+                         {"services": ["twitchbot", "discordbot"], "db_container": "alt-pg", "db_user": "u1", "db_name": "d1"})
+        self.assertEqual(bwk_pull.compose_defaults(self.tmp / "fehlt.yaml"), {})
+
+    def test_init_ohne_token_mit_erkennung(self):
+        d, out = self.init("--project", str(self.project))
+        self.assertNotIn("token_file", d)
+        self.assertEqual(d["repo"], bwk_pull.DEFAULT_REPO)
+        self.assertEqual(d["services"], ["web", "twitch"])
+        self.assertEqual(d["db_container"], "bcc-db")
+        self.assertEqual(d["compose"], str(self.project) + "/compose.yaml")
+        self.assertIn("übernommen", out)
+        self.assertEqual(stat.S_IMODE((self.work / "pull" / "config.json").stat().st_mode), 0o600)
+
+    def test_init_mit_token_traegt_token_ein(self):
+        d, _ = self.init("--project", str(self.project), "--token-file", "/x/token")
+        self.assertEqual(d["token_file"], "/x/token")
+
+    def test_init_ohne_angaben_bleibt_beim_bisherigen_standard(self):
+        d, _ = self.init()
+        self.assertEqual(d["project"], "/PFAD/ZUM/PROJEKTORDNER")
+        self.assertEqual(d["services"], ["twitchbot", "discordbot"])
+        self.assertEqual(d["db_container"], "bcc-db")
+
+    def test_init_veraendert_vorhandene_config_nicht(self):
+        (self.work / "pull").mkdir()
+        (self.work / "pull" / "config.json").write_text('{"repo": "a/b"}')
+        d, out = self.init("--project", str(self.project))
+        self.assertEqual(d, {"repo": "a/b"})
+        self.assertIn("nicht verändert", out)
+
+    def test_init_unter_startdatei_legt_work_an(self):
+        root = self.project / "deploy"
+        here = root / "versions" / bwk_pull.TOOL_VERSION
+        here.mkdir(parents=True)
+        (root / "launcher.py").write_text("# Startdatei\n")
+        old_here, old_env = bwk_pull.HERE, os.environ.get("BWK_LAUNCHER")
+        bwk_pull.HERE = here
+        os.environ["BWK_LAUNCHER"] = "1"
+        try:
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                self.assertEqual(bwk_pull.main(["init"]), 0)
+        finally:
+            bwk_pull.HERE = old_here
+            if old_env is None: os.environ.pop("BWK_LAUNCHER", None)
+            else: os.environ["BWK_LAUNCHER"] = old_env
+        work = root / "work"
+        self.assertTrue((work / "approvals" / "pending").is_dir())
+        d = json.loads((work / "pull" / "config.json").read_text())
+        self.assertNotIn("project", d)
+        self.assertNotIn("compose", d)
+        self.assertEqual(d["services"], ["web", "twitch"])
+        self.assertEqual(stat.S_IMODE(work.stat().st_mode), 0o700)
+
+
 class WerkzeugNamen(unittest.TestCase):
     def test_parse_services(self):
         d = bwk_pull.deploy

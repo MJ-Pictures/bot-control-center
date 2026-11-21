@@ -22,7 +22,7 @@ MAX_ZIP = 16 * 1024 * 1024
 MAX_UNPACKED = 100 * 1024 * 1024
 MAX_FILES = 2000
 VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
-TOOL_VERSION = "1.8.0"
+TOOL_VERSION = "1.9.0"
 # 1.5.0: Dienstliste und Datenbank-Container sind einstellbar (Standard = bisherige Werte).
 # Die Namen werden streng geprüft, weil sie als Argumente an docker übergeben werden.
 DEFAULT_SERVICES = ('twitchbot', 'discordbot')

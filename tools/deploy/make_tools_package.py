@@ -44,9 +44,9 @@ def build_starter(out_dir):
     state = {"schema": 1, "current": version, "previous": None, "pending": None, "trial": None, "failed": []}
     entries = [("deploy/launcher.py", (HERE / "launcher.py").read_bytes()),
                ("deploy/state.json", (json.dumps(state, indent=2) + "\n").encode("utf8"))]
-    guide = HERE / f"UPGRADE-{version}.md"
-    if guide.is_file():
-        entries.append((f"deploy/{guide.name}", guide.read_bytes()))
+    for guide in (HERE / "UPDATER-EINRICHTEN.md", HERE / f"UPGRADE-{version}.md"):
+        if guide.is_file():
+            entries.append((f"deploy/{guide.name}", guide.read_bytes()))
     entries += [(f"deploy/versions/{version}/{name}", (HERE / name).read_bytes()) for name in sorted(deploy.TOOLS_FILES)]
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for name, data in entries:

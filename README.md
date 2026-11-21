@@ -54,6 +54,8 @@ Jede Funktion lässt sich als Modul unter Administration → Integrationen einze
 
 Die Schritte stehen in [`tools/compose/INSTALLATION.md`](tools/compose/INSTALLATION.md): Dateien holen, Zugangsdaten anlegen, `compose.yaml` anpassen, starten, Ersteinrichtung im Browser. Dort stehen auch die Hinweise für Synology (DSM), Linux/VPS und Docker Desktop.
 
+**Updates:** Auf Linux und NAS holt sich das Control Center neue Versionen auf Wunsch selbst (Update-Werkzeug, ohne GitHub-Konto). Neue Versionen erscheinen unter Administration → Updates und werden erst nach deiner Freigabe installiert, mit Sicherung und automatischem Zurücksetzen bei Fehlern. Einrichtung: [`tools/deploy/UPDATER-EINRICHTEN.md`](tools/deploy/UPDATER-EINRICHTEN.md); das Startpaket dafür hängt an jedem Release (Datei `…-updater-start-…zip`).
+
 ## Aufbau
 
 Fünf Dienste in einer `compose.yaml`:
@@ -71,6 +73,7 @@ Zugangsdaten liegen als Dateien im Ordner `secrets/` (siehe [`secrets/README.txt
 ## Anleitungen
 
 - [`tools/compose/INSTALLATION.md`](tools/compose/INSTALLATION.md): neue Installation auf NAS, Server oder Docker Desktop
+- [`tools/deploy/UPDATER-EINRICHTEN.md`](tools/deploy/UPDATER-EINRICHTEN.md): automatische Updates einrichten
 - [`DISCORD-SETUP.md`](DISCORD-SETUP.md): Discord einrichten und betreiben
 - [`STUBENKONTROLLE-SETUP.md`](STUBENKONTROLLE-SETUP.md): Punktespiel und Overlay
 - [`SOCIAL-MEDIA-SETUP.md`](SOCIAL-MEDIA-SETUP.md): Social-Media-Weitergabe

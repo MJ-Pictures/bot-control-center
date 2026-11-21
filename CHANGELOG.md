@@ -2,6 +2,16 @@
 
 Dieses Dokument wird aus `public/changelog.json` erzeugt, dem Protokoll, das auch die Oberfläche anzeigt. Die neueste Version steht oben.
 
+## 9.26.0 – 2026-11-22
+
+**Automatische Updates auch für andere Betreiber (Update-Werkzeug 1.9.0)**
+
+- Das Update-Werkzeug arbeitet jetzt auch ohne GitHub-Token aus dem öffentlichen Repository. So können andere Betreiber neue Versionen automatisch melden lassen und nach Freigabe unter Administration → Updates installieren.
+- Einrichtung vereinfacht: „launcher.py init“ legt den Arbeitsordner selbst an, trägt kein Token mehr ein, wenn keines angegeben ist, und liest Dienstnamen und Datenbank-Werte aus der compose.yaml. Eine vorhandene Einrichtung bleibt unverändert.
+- Verständliche Meldungen beim GitHub-Abfragelimit und bei nicht gefundenem Repository; „status“ zeigt, ob mit oder ohne Token abgefragt wird.
+- Neue Anleitung tools/deploy/UPDATER-EINRICHTEN.md; das öffentliche Release enthält zusätzlich das Startpaket des Update-Werkzeugs.
+- Für die eigene Installation ändert sich nichts: Das Werkzeug 1.9.0 kommt wie gewohnt per Selbstupdate mit.
+
 ## 9.25.7 – 2026-11-21
 
 **Öffentliche Veröffentlichung auch nachträglich auslösbar**

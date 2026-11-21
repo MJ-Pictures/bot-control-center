@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""BWK Pull-Deployment (Host-Task), Version 1.8.0.
+"""BWK Pull-Deployment (Host-Task), Version 1.9.0.
 
 Python 3.9+, nur Standardbibliothek. Läuft auf der NAS (Aufgabenplaner, als root).
 
@@ -21,6 +21,11 @@ bisher (das Werkzeug wird dann von Hand getauscht).
 <Ordner der Startdatei>/work); project und compose haben dort ebenfalls einen Standard (der Ordner
 über der Startdatei), und token_file darf relativ zum Ordner pull/ angegeben werden. Neuer erlaubter
 Ordner im Update-ZIP: mcp-app/.
+
+1.9.0 – Betrieb ohne Token (öffentliches Repository, Stufe 3): init trägt token_file nur noch ein, wenn
+es angegeben ist, legt unter der Startdatei den Arbeitsordner selbst an und liest Dienstnamen und
+Datenbank-Werte aus der compose.yaml. Verständliche Meldungen bei Abfragelimit (403/429) und 404;
+status nennt die Quelle (mit/ohne Token).
 """
 import argparse
 import contextlib
@@ -43,7 +48,7 @@ import urllib.parse
 import zipfile
 from pathlib import Path, PurePosixPath
 
-TOOL_VERSION = "1.8.0"
+TOOL_VERSION = "1.9.0"
 HERE = Path(__file__).resolve().parent
 
 
@@ -357,9 +362,76 @@ class Ctx:
         self.services = tuple(services or deploy.DEFAULT_SERVICES)
         self.approvals = work / "approvals"
         self.pull_dir = work / "pull"
+        self.has_token_file = bool(token)
 
     def sub(self, name):
         return self.approvals / name
+
+
+DEFAULT_REPO = "MJ-Pictures/bot-control-center"
+
+
+def http_error_text(status, host, remaining=None, with_token=False):
+    """1.9.0: verständliche Meldung, vor allem für den Betrieb ohne Token (öffentliches Repository)."""
+    base = f"HTTP {status} von {clean(host, 80)}"
+    if status in (403, 429) and str(remaining or "").strip() == "0":
+        if with_token:
+            return base + ": GitHub-Abfragelimit erreicht; nächster Versuch automatisch"
+        return (base + ": GitHub-Abfragelimit ohne Token erreicht (60 Abfragen pro Stunde je Internetanschluss); "
+                "nächster Versuch automatisch")
+    if status == 404 and not with_token:
+        return base + ": Repository oder Release nicht gefunden (Repository-Name prüfen; ein privates Repository braucht token_file)"
+    if status == 401:
+        return base + ": Token ungültig oder abgelaufen"
+    return base
+
+
+def compose_defaults(compose_path):
+    """1.9.0: Dienstnamen, Datenbank-Container, -Benutzer und -Name aus einer compose.yaml lesen.
+
+    Bewusst einfache Zeilenauswertung (keine YAML-Bibliothek nötig). Gibt nur gefundene Werte zurück;
+    alles Fehlende bleibt beim bisherigen Standard. Erkannt werden die Programmdienste der Vorlage
+    (web, twitch, discord, mcp) und die bisherigen Namen (twitchbot, discordbot)."""
+    try:
+        text = Path(compose_path).read_text(encoding="utf8")
+    except (OSError, UnicodeDecodeError):
+        return {}
+    services, current, in_services = {}, None, False
+    for raw in text.splitlines():
+        line = raw.split(" #", 1)[0].rstrip()
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        if indent == 0:
+            in_services = line.strip() == "services:"
+            current = None
+            continue
+        if not in_services:
+            continue
+        m = re.fullmatch(r"  ([A-Za-z0-9][A-Za-z0-9_.-]{0,62}):", line)
+        if m:
+            current = m.group(1)
+            services[current] = {}
+            continue
+        if current is None:
+            continue
+        m = re.fullmatch(r"\s+(container_name|POSTGRES_USER|POSTGRES_DB):\s*[\"']?([A-Za-z0-9_.-]{1,63})[\"']?", line)
+        if m:
+            services[current][m.group(1)] = m.group(2)
+    out = {}
+    app = [n for n in ("web", "twitch", "discord", "mcp", "twitchbot", "discordbot") if n in services]
+    if app:
+        out["services"] = app
+    for info in services.values():
+        if "POSTGRES_USER" in info or "POSTGRES_DB" in info:
+            if info.get("container_name"):
+                out["db_container"] = info["container_name"]
+            if info.get("POSTGRES_USER"):
+                out["db_user"] = info["POSTGRES_USER"]
+            if info.get("POSTGRES_DB"):
+                out["db_name"] = info["POSTGRES_DB"]
+            break
+    return out
 
 
 def read_token(path):
@@ -450,9 +522,11 @@ def load_ctx(args, need_project=True, need_token=True):
         db_container = deploy.check_container_name(pick("db_container", "bcc-db"))
     except ValueError as exc:
         raise PullError("config.json: " + str(exc))
-    return Ctx(work, project, compose, repo, token, api_base,
-               db_container, str(pick("db_user", "bwk")),
-               str(pick("db_name", "bwk")), script, services)
+    ctx = Ctx(work, project, compose, repo, token, api_base,
+              db_container, str(pick("db_user", "bwk")),
+              str(pick("db_name", "bwk")), script, services)
+    ctx.has_token_file = bool(token_file)
+    return ctx
 
 
 def production_version(ctx):
@@ -565,7 +639,8 @@ class Fetcher:
                     return 304, dict(resp.getheaders()), None
                 if resp.status != 200:
                     transient = resp.status in (403, 429) or resp.status >= 500
-                    raise PullError(f"HTTP {resp.status} von {clean(u.hostname, 80)}", transient=transient)
+                    raise PullError(http_error_text(resp.status, u.hostname, resp.getheader("X-RateLimit-Remaining"),
+                                                    bool(self.token)), transient=transient)
                 length = resp.getheader("Content-Length")
                 if length and length.isdigit() and int(length) > max_bytes:
                     raise PullError("Antwort größer als erlaubt")
@@ -1203,6 +1278,7 @@ def cmd_approve(args, reject=False):
 def cmd_status(args):
     ctx = load_ctx(args, need_token=False)
     print("Produktive Version:", production_version(ctx))
+    print("Quelle:", ctx.repo, "(mit Token)" if ctx.has_token_file else "(ohne Token, öffentliches Repository)")
     root = launcher_root()
     lstate = launcher_state(root) if root else None
     if lstate:
@@ -1226,6 +1302,18 @@ def cmd_status(args):
 
 
 def cmd_init(args):
+    """Legt Verzeichnisse und config.json an. Eine vorhandene config.json wird nie verändert.
+
+    1.9.0: Unter der Startdatei ist --work nicht nötig (Standard <Ordner der Startdatei>/work, wird angelegt).
+    token_file wird nur eingetragen, wenn es angegeben ist (öffentliches Repository: kein Token).
+    project/compose bleiben unter der Startdatei leer (Standard: der Ordner über ihr); Dienste und
+    Datenbank-Werte werden aus der compose.yaml gelesen."""
+    root = launcher_root()
+    if not getattr(args, "work", None) and root is not None:
+        work_dir = root / "work"
+        if work_dir.is_symlink():
+            raise PullError("Arbeitsordner ist ein Symlink: " + str(work_dir))
+        work_dir.mkdir(mode=0o700, exist_ok=True)
     work = resolve_work(args)
     for sub in ("pending", "granted", "rejected", "used", "results"):
         (work / "approvals" / sub).mkdir(parents=True, exist_ok=True)
@@ -1234,15 +1322,31 @@ def cmd_init(args):
     if cfg.exists():
         print("config.json existiert bereits; nicht verändert:", cfg)
     else:
-        write_json_file(cfg, {
-            "repo": args.repo or "MJ-Pictures/bot-control-center",
-            "token_file": args.token_file or "/PFAD/ZUR/github_token",
-            "project": args.project or "/volume2/docker/bcc",
-            "compose": args.compose or "/volume2/docker/bcc/compose.yaml",
-            "db_container": "bcc-db", "db_user": "bwk", "db_name": "bwk",
-            "services": list(deploy.DEFAULT_SERVICES),
-        }, 0o600)
-        print("config.json angelegt (bitte Pfade prüfen):", cfg)
+        data = {"repo": args.repo or DEFAULT_REPO}
+        if args.token_file:
+            data["token_file"] = args.token_file
+        project = args.project
+        if not project and root is not None and (root.parent / "VERSION").is_file():
+            project_for_detect = root.parent  # Standard unter der Startdatei, wird nicht eingetragen
+        else:
+            project_for_detect = Path(project) if project else None
+            data["project"] = project or "/PFAD/ZUM/PROJEKTORDNER"
+        compose = args.compose
+        if compose:
+            data["compose"] = compose
+        elif "project" in data:
+            data["compose"] = (project + "/compose.yaml") if project else "/PFAD/ZUM/PROJEKTORDNER/compose.yaml"
+        detect_from = Path(compose) if compose else (project_for_detect / "compose.yaml" if project_for_detect else None)
+        found = compose_defaults(detect_from) if detect_from else {}
+        data["db_container"] = found.get("db_container", "bcc-db")
+        data["db_user"] = found.get("db_user", "bwk")
+        data["db_name"] = found.get("db_name", "bwk")
+        data["services"] = found.get("services", list(deploy.DEFAULT_SERVICES))
+        write_json_file(cfg, data, 0o600)
+        print("config.json angelegt (bitte prüfen):", cfg)
+        print(json.dumps(data, indent=2, ensure_ascii=False))
+        if found:
+            print("Aus", detect_from, "übernommen:", ", ".join(sorted(found)))
     if args.token_file:
         try:
             read_token(Path(args.token_file))

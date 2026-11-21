@@ -2,7 +2,7 @@
 
 Diese Anleitung gilt für eine frische Installation des Bot Control Centers auf Docker – auf einer NAS, einem eigenen Server (VPS) oder einem Windows-/Mac-Rechner mit Docker Desktop. Das Programm ist Docker-only; eine Installation ohne Docker gibt es nicht.
 
-Ein bestehender Betrieb (Pull-Deployment mit Update-Werkzeug) wird in [`tools/deploy/PULL-DEPLOYMENT.md`](../deploy/PULL-DEPLOYMENT.md) beschrieben.
+Automatische Updates (Update-Werkzeug, auf Linux/NAS) richtest du nach der Installation mit [`tools/deploy/UPDATER-EINRICHTEN.md`](../deploy/UPDATER-EINRICHTEN.md) ein; technische Einzelheiten stehen in [`tools/deploy/PULL-DEPLOYMENT.md`](../deploy/PULL-DEPLOYMENT.md).
 
 ## Das brauchst du
 - **Docker** mit Docker Compose (Version 2: `docker compose`).
@@ -71,4 +71,5 @@ Danach mit dem **Twitch-Konto des Kanals** anmelden: Es erhält automatisch Owne
 
 ## Sicherung und Updates
 - Datenbank sichern: Skripte in `scripts/` (Sicherung und Wiederherstellung); die Seite Administration → Backup / Restore deckt die Einstellungen und Bilder ab.
-- Updates: das neue Release-ZIP wie in Schritt 1 über den Projektordner entpacken (die eigene `compose.yaml` und `secrets/` dabei nicht überschreiben) und `docker compose up -d --build` ausführen. Die Hinweise des Releases (`UPDATE-<Version>.md`) vorher lesen.
+- Updates **automatisch** (Linux/NAS): Update-Werkzeug nach [`UPDATER-EINRICHTEN.md`](../deploy/UPDATER-EINRICHTEN.md) einrichten. Neue Versionen erscheinen dann unter Administration → Updates und werden erst nach deiner Freigabe installiert.
+- Updates **von Hand** (z. B. Docker Desktop): das neue Release-ZIP wie in Schritt 1 über den Projektordner entpacken (die eigene `compose.yaml` und `secrets/` dabei nicht überschreiben) und `docker compose up -d --build` ausführen. Die Hinweise des Releases (`UPDATE-<Version>.md`) vorher lesen.

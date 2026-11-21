@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Erzeugt release-manifest.json für ein BWK-Control-Center-Release (Version 1.8.0).
+"""Erzeugt release-manifest.json für ein BWK-Control-Center-Release (Version 1.9.0).
 
 Wird beim Bau eines Releases ausgeführt, nicht auf der NAS.
 Nutzt dieselbe Tiefenprüfung wie das Host-Werkzeug (bwk_deploy.verify), damit
@@ -30,7 +30,7 @@ spec = importlib.util.spec_from_file_location("bwk_deploy_for_manifest", str(HER
 deploy = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(deploy)
 
-TOOL_VERSION = "1.8.0"
+TOOL_VERSION = "1.9.0"
 INFRA_EXACT = {"compose.yaml", "compose.yml", "docker-compose.yml", "docker-compose.yaml",
                "package.json", "package-lock.json"}
 

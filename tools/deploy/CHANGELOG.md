@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.0
+- **Betrieb ohne Token** (öffentliches Repository, Stufe 3 der Verteilung): Fehlt `token_file` in `config.json`, fragt das Werkzeug GitHub ohne Anmeldung ab. Für das eigene private Repository ändert sich nichts.
+- `init`: trägt `token_file` nur ein, wenn es angegeben ist; legt unter der Startdatei den Arbeitsordner `deploy/work/` selbst an (`--work` nicht nötig); lässt `project`/`compose` dort leer (Standard: Ordner über der Startdatei) und liest `services`, `db_container`, `db_user`, `db_name` aus der `compose.yaml` (Vorlage: `web`, `twitch`, `discord`, `mcp`, `bcc-db`). Eine vorhandene `config.json` bleibt unverändert.
+- Verständliche Meldungen: GitHub-Abfragelimit (403/429, ohne Token 60 Abfragen pro Stunde), 404 ohne Token (Hinweis auf privates Repository), 401 (Token ungültig).
+- `status` nennt die Quelle (`mit Token` bzw. `ohne Token, öffentliches Repository`).
+- Startpaket (`make_tools_package.py --starter`) enthält zusätzlich `UPDATER-EINRICHTEN.md`; das öffentliche Release hängt das Startpaket an.
+- Neue Anleitung für Betreiber: `UPDATER-EINRICHTEN.md`. Die Startdatei `launcher.py` ist unverändert (Fassung 1).
+
 ## 1.8.0
 - Neuer erlaubter Ordner im Update-ZIP: `mcp-app/` (MCP-Zugang als Dienst des Control Centers, ab Control Center 8.12.0).
 - **Arbeitsordner im Projektordner:** Unter der Startdatei ist `--work` nicht mehr nötig; Standard ist `<Ordner der Startdatei>/work` (kein Symlink). Der Aufruf im Aufgabenplaner lautet dann nur noch `launcher.py run`. Eine ausdrückliche Angabe hat weiter Vorrang; ohne Startdatei bleibt `--work` Pflicht.
