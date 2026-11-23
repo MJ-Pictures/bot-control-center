@@ -4378,7 +4378,7 @@ async function fetchTikTokMedia(){
     publishedAt:x.create_time?new Date(Number(x.create_time)*1000).toISOString():null,raw:x
   })).filter(x=>x.id);
 }
-async function fetchThumbnailBlob(url){
+async function fetchThumbnailBlob(url,baseName="social-thumbnail"){
   if(!url)return null;
   try{
     const downloaded=await fetchBufferLimited(url,{maxBytes:8*1024*1024,timeoutMs:10000});
@@ -4386,7 +4386,7 @@ async function fetchThumbnailBlob(url){
     if(!type.startsWith("image/"))return null;
     const buf=downloaded.buffer;
     const ext=type.includes("png")?"png":type.includes("webp")?"webp":"jpg";
-    return {buf,type,filename:`social-thumbnail.${ext}`};
+    return {buf,type,filename:`${baseName}.${ext}`};
   }catch{return null}
 }
 async function sendSocialDiscordMessage(platform,item,{test=false}={}){
@@ -4586,8 +4586,17 @@ function announcementCatalog(){
   const mentionRoles=state.cache.roles.filter(r=>r.id!==IDS.guild && !r.managed && r.mentionable).map(r=>({id:r.id,name:r.name,mentionable:true}));
   return {channels:textChannels,mentionRoles};
 }
+function lastAnnouncementMessage(bucket){
+  let best=null;
+  for(const [key,x] of Object.entries(bucket||{})){
+    if(!x?.messageId||!x?.channelId)continue;
+    if(!best||String(x.sentAt||"")>String(best.sentAt||""))best={key,sentAt:x.sentAt||null,title:x.title||null,channelId:x.channelId,messageId:x.messageId,withImage:x.withImage===true};
+  }
+  return best?{...best,url:`https://discord.com/channels/${IDS.guild}/${best.channelId}/${best.messageId}`}:null;
+}
 function announcementView(){
   return {ok:true,config:announcementsConfig,state:{
+    lastClipMessage:lastAnnouncementMessage(announcementsState.clips),lastLiveMessage:lastAnnouncementMessage(announcementsState.liveStreams),
     liveCount:Object.keys(announcementsState.liveStreams||{}).length,
     clipCount:Object.keys(announcementsState.clips||{}).length,
     lastLiveAt:announcementsState.lastLiveAt,lastClipAt:announcementsState.lastClipAt,lastError:announcementsState.lastError
@@ -4599,7 +4608,19 @@ async function sendAnnouncementMessage(channelId,content,mentionRoleId=null,embe
   if(embed)body.embeds=[embed];
   return discordApi(`/channels/${channelId}/messages`,"POST",body);
 }
-async function ingestAnnouncement(type,key,payload,{test=false}={}){
+// 9.26.2: Clip-Vorschaubild selbst laden und anhängen (Discord lädt Twitch-Bilder oft zu früh und behält den Fehlschlag).
+const CLIP_THUMBNAIL_WAIT_ATTEMPTS=12; // ca. 3 Minuten bei 15 s Takt der Twitch-Warteschlange
+async function sendAnnouncementWithFile(channelId,content,mentionRoleId,embed,file){
+  const allowed={parse:[],users:[],roles:mentionRoleId?[mentionRoleId]:[],replied_user:false};
+  const form=new FormData();
+  form.append("payload_json",JSON.stringify({content:(mentionRoleId?`<@&${mentionRoleId}> `:"")+content,allowed_mentions:allowed,embeds:embed?[embed]:[]}));
+  form.append("files[0]",new Blob([file.buf],{type:file.type}),file.filename);
+  const r=await fetch(`${API_BASE}/channels/${channelId}/messages`,{method:"POST",headers:{Authorization:`Bot ${process.env.DISCORD_BOT_TOKEN}`,"User-Agent":discordTexts().userAgent},body:form});
+  const text=await r.text();let body=null;try{body=text?JSON.parse(text):null}catch{body=text}
+  if(!r.ok)throw new Error(`Discord API ${r.status}: ${typeof body==="string"?body:JSON.stringify(body)}`);
+  return body;
+}
+async function ingestAnnouncement(type,key,payload,{test=false,attempt=0}={}){
   if(!["live","clip"].includes(type))throw new Error("Unbekannter Ankündigungstyp.");
   const enabled=type==="live"?announcementsConfig.liveEnabled:announcementsConfig.clipsEnabled;
   const channelId=type==="live"?announcementsConfig.liveChannelId:announcementsConfig.clipsChannelId;
@@ -4617,14 +4638,25 @@ async function ingestAnnouncement(type,key,payload,{test=false}={}){
       ? {title:payload?.title||`${textPackKit.get(installationTextPack).test.channelName} ist LIVE`,url:payload?.url||undefined,description:payload?.gameName?`Kategorie: ${payload.gameName}`:undefined}
             : {title:payload?.title||"Neuer Twitch-Clip",url:payload?.url||undefined,description:payload?.creator?`Erstellt von ${payload.creator}`:undefined,image:payload?.thumbnailUrl?{url:payload.thumbnailUrl}:undefined};
   }
-  await sendAnnouncementMessage(channelId,content,announcementsConfig.mentionRoleId,embed);
+  let thumb=null;
+  if(embed&&type==="clip"&&payload?.thumbnailUrl){
+    thumb=await fetchThumbnailBlob(payload.thumbnailUrl,"clip-thumbnail");
+    if(!thumb&&!test&&Number(attempt)<CLIP_THUMBNAIL_WAIT_ATTEMPTS){
+      const e=new Error("Vorschaubild des Clips ist noch nicht abrufbar; neuer Versuch folgt.");e.status=503;throw e;
+    }
+    if(thumb)embed.image={url:`attachment://${thumb.filename}`};
+  }
+  const message=thumb
+    ?await sendAnnouncementWithFile(channelId,content,announcementsConfig.mentionRoleId,embed,thumb)
+    :await sendAnnouncementMessage(channelId,content,announcementsConfig.mentionRoleId,embed);
+  const messageId=message?.id?String(message.id):null;
 
   if(!test){
-    bucket[key]={sentAt:now(),url:payload?.url||null,title:payload?.title||null};
+    bucket[key]={sentAt:now(),url:payload?.url||null,title:payload?.title||null,channelId,messageId,withImage:!!thumb};
     if(type==="live")announcementsState.lastLiveAt=now(); else announcementsState.lastClipAt=now();
     announcementsState.lastError=null; saveAnnouncementsState();
   }
-  return {ok:true,status:test?"test":"sent"};
+  return {ok:true,status:test?"test":"sent",messageId,channelId};
 }
 
 
@@ -5396,7 +5428,7 @@ const api=http.createServer(async(req,res)=>{
       const body=await readRequestJson(req);
       // 9.8.0: Modul „Discord-Ankündigungen“ aus → annehmen, aber nicht posten (Warteschlange im Twitch-Bot leert sich).
       if(!moduleState.isOn("discordAnnouncements")){res.statusCode=200;res.end(JSON.stringify({ok:true,status:"module_disabled"}));return;}
-      const result=await ingestAnnouncement(String(body.type||""),String(body.key||""),body.payload||{});
+      const result=await ingestAnnouncement(String(body.type||""),String(body.key||""),body.payload||{},{attempt:Math.max(0,Number(body.attempts||0))});
       res.statusCode=200;res.end(JSON.stringify(result,null,2));
     }catch(err){
       announcementsState.lastError=err.message;saveAnnouncementsState();

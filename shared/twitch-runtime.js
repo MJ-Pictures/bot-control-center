@@ -1684,6 +1684,8 @@ function enqueueDiscordAnnouncement(type,key,payload){
   }
 }
 let discordBridgeBusy=false;
+const DISCORD_BRIDGE_REPORT_AT=5;
+const DISCORD_BRIDGE_MAX_ATTEMPTS=40; // ca. 10 Minuten bei 15 s Takt
 async function flushDiscordBridge(){
   if(discordBridgeBusy)return;
   discordBridgeBusy=true;
@@ -1693,18 +1695,26 @@ async function flushDiscordBridge(){
     const item=state.queue[0];
     try{
       const result=await discordServiceRequest("/announcements/ingest",{
-        method:"POST",body:JSON.stringify({type:item.type,key:item.key,payload:item.payload})
+        method:"POST",body:JSON.stringify({type:item.type,key:item.key,payload:item.payload,attempts:Number(item.attempts||0)})
       });
       if(!result?.body?.ok)throw new Error(result?.body?.error||"Discord-Ankündigung abgelehnt.");
       state.queue.shift();
       state.lastDeliveredAt=new Date().toISOString();
       state.lastError=null;
       writeDiscordBridgeState(state);
-      audit("discord-bridge","discord.announcement.delivered",{type:item.type,key:item.key,status:result.body?.status||"sent"});
+      audit("discord-bridge","discord.announcement.delivered",{type:item.type,key:item.key,status:result.body?.status||"sent",messageId:result.body?.messageId||null,channelId:result.body?.channelId||null});
     }catch(e){
       item.attempts=Number(item.attempts||0)+1;
       item.lastError=e.message;
       state.lastError=e.message;
+      // 9.26.2: Eine Meldung, die Discord dauerhaft ablehnt, blockiert nicht mehr alles dahinter.
+      // Fehler erst ab dem 5. Versuch melden (kurzes Warten auf das Clip-Vorschaubild ist normal).
+      if(item.attempts===DISCORD_BRIDGE_REPORT_AT)audit("discord-bridge","discord.announcement.failed",{section:"discord",type:item.type,key:item.key,error:e.message,attempts:item.attempts});
+      if(item.attempts>=DISCORD_BRIDGE_MAX_ATTEMPTS){
+        state.queue.shift();
+        state.lastError=`Aufgegeben nach ${item.attempts} Versuchen (${item.type}:${item.key}): ${e.message}`;
+        audit("discord-bridge","discord.announcement.dropped.failed",{section:"discord",type:item.type,key:item.key,error:state.lastError,attempts:item.attempts});
+      }
       writeDiscordBridgeState(state);
     }
   }finally{discordBridgeBusy=false;}

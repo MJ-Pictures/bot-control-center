@@ -55,7 +55,5 @@ test("Einbindung im Clip-Monitor, in den Einstellungen und in der Oberfläche", 
   const ui = rd("public/app.js");
   assert.match(ui, /id="clipInterval" type="number" min="5" max="120"/);
   assert.match(ui, /Twitch lieferte den Clip/);
-  assert.match(rd("VERSION"), /^9\.26\.1/);
   assert.ok(JSON.parse(rd("public/changelog.json")).versions.some(v => v.version === "9.26.1"));
-  assert.ok(fs.existsSync(path.join(__dirname, "..", "UPDATE-9.26.1.md")));
 });

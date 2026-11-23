@@ -2,6 +2,14 @@
 
 Dieses Dokument wird aus `public/changelog.json` erzeugt, dem Protokoll, das auch die Oberfläche anzeigt. Die neueste Version steht oben.
 
+## 9.26.2 – 2026-11-23
+
+**Clip-Meldungen in Discord: Vorschaubild zuverlässig, Nachricht auffindbar**
+
+- Das Vorschaubild eines Clips wird vom Bot selbst geladen und an die Discord-Nachricht angehängt (wie bei Social Media). Bisher lud Discord das Bild von Twitch, oft bevor es dort abrufbar war, und zeigte dann dauerhaft keines. Ist das Bild noch nicht da, wartet der Bot bis zu etwa 3 Minuten und sendet danach trotzdem.
+- Gesendete Ankündigungen merken sich Kanal und Nachrichten-ID. Unter Discord → Kommunikation steht ein Link zur letzten Clip- und Live-Nachricht. Wurde eine Nachricht nach dem Senden in Discord gelöscht, lässt sich das so erkennen.
+- Eine Ankündigung, die Discord dauerhaft ablehnt, blockiert die Warteschlange nicht mehr: Nach 40 Versuchen (ca. 10 Minuten) wird sie aufgegeben. Der Fehler erscheint unter Administration → Systemfehler (ab dem 5. Versuch und beim Aufgeben).
+
 ## 9.26.1 – 2026-11-23
 
 **Clip-Monitor übersteht Netzausfälle**

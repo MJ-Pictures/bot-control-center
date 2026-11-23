@@ -4796,6 +4796,7 @@ async function renderDiscordAnnouncements(){
         <div class="summary-item"><strong>${d.state?.lastLiveAt?discordFormatTime(d.state.lastLiveAt):"–"}</strong><span>Letzte Livemeldung</span></div>
         <div class="summary-item"><strong>${d.state?.lastClipAt?discordFormatTime(d.state.lastClipAt):"–"}</strong><span>Letzter Clip</span></div>
       </div>
+      ${["lastLiveMessage","lastClipMessage"].map(k=>{const m=d.state?.[k];const label=k==="lastClipMessage"?"Letzte Clip-Nachricht":"Letzte Live-Nachricht";return `<p class="hint">${label}: ${m?`<a href="${esc(m.url)}" target="_blank" rel="noopener noreferrer">${esc(m.title||"Nachricht öffnen")}</a> · ${esc(discordFormatTime(m.sentAt))}${k==="lastClipMessage"?(m.withImage?" · mit Vorschaubild":" · ohne Vorschaubild"):""}. Ist sie dort nicht mehr zu sehen, wurde sie nach dem Senden in Discord gelöscht.`:"noch keine seit 9.26.2 gesendet."}</p>`;}).join("")}
       ${d.state?.lastError?`<div class="card error">${esc(d.state.lastError)}</div>`:""}`;
     $("discordAnnouncementsSave")?.addEventListener("click",saveDiscordAnnouncements);
     $("discordLiveTest")?.addEventListener("click",()=>testDiscordAnnouncement("live"));

@@ -29,7 +29,7 @@ Jede Funktion lässt sich als Modul unter Administration → Integrationen einze
 - **Notfallmodus:** stufenweise Einschränkung des Servers auf Knopfdruck.
 - **Kanalzeiten:** Kanäle nach Zeitplan öffnen und schließen, auch mit Wartungsmodus.
 - **Levelsystem:** XP für Nachrichten, Ränge als Rollen, tägliche Meldungen, Missionen und Topliste.
-- **Ankündigungen:** Live- und Clip-Meldungen von Twitch automatisch in Discord posten.
+- **Ankündigungen:** Live- und Clip-Meldungen von Twitch automatisch in Discord posten, Clips mit Vorschaubild.
 - **Einladungslink:** verwalteter Einladungslink, auch für Twitch-Befehle.
 - **Social Media:** neue Instagram- und TikTok-Beiträge automatisch in Discord veröffentlichen. TikTok-Meldungen werden nur gesendet, wenn der Link erreichbar ist; zu alte Beiträge werden nicht mehr angekündigt.
 - **Lagebild, Logs und Benachrichtigungen** für das Team.
