@@ -359,8 +359,8 @@ function normalizeClipSettings(settings) {
   const c = settings.clipSharing;
 
   if (typeof c.enabled !== "boolean") c.enabled = false;
-  if (!Number.isFinite(Number(c.intervalSeconds))) c.intervalSeconds = 20;
-  c.intervalSeconds = Math.min(120, Math.max(15, Number(c.intervalSeconds || 20)));
+  if (!Number.isFinite(Number(c.intervalSeconds))) c.intervalSeconds = 10;
+  c.intervalSeconds = Math.min(120, Math.max(5, Number(c.intervalSeconds || 10)));
   if (typeof c.onlyLive !== "boolean") c.onlyLive = true;
   if (typeof c.showCreator !== "boolean") c.showCreator = true;
   if (typeof c.message !== "string" || !c.message.trim()) {

@@ -2,6 +2,15 @@
 
 Dieses Dokument wird aus `public/changelog.json` erzeugt, dem Protokoll, das auch die Oberfläche anzeigt. Die neueste Version steht oben.
 
+## 9.26.1 – 2026-11-23
+
+**Clip-Monitor übersteht Netzausfälle**
+
+- Nach einem Ausfall der Verbindung zu Twitch holt der Clip-Monitor verpasste Clips nach: Er sucht ab dem letzten erfolgreichen Abruf (höchstens 60 Minuten zurück) statt wie bisher nur in den letzten 10 Minuten. Das Suchfenster im Normalbetrieb ist 15 Minuten, weil Twitch neue Clips nach bisheriger Beobachtung erst nach einigen Minuten listet. Doppelte Meldungen verhindert die bestehende Clip-Reservierung. Nach einem Neustart gilt wieder das normale Fenster.
+- Die Fehlermeldung nennt jetzt die Ursache (zum Beispiel DNS-Fehler oder Zeitüberschreitung) statt nur „fetch failed“.
+- Neues Standard-Prüfintervall 10 Sekunden (einstellbar von 5 bis 120 Sekunden); gespeicherte Einstellungen bleiben unverändert.
+- Der Status unter Clips zeigt, wie lange Twitch nach dem Erstellen gebraucht hat, bis der zuletzt geteilte Clip abrufbar war.
+
 ## 9.26.0 – 2026-11-22
 
 **Automatische Updates auch für andere Betreiber (Update-Werkzeug 1.9.0)**

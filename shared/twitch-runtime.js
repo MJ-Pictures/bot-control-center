@@ -27,6 +27,7 @@ function createTwitchRuntime(deps) {
 // nur hier, beim Besitzer der Tokens, kommt der Pfad der Token-Datei dazu.
 const {twitchAccountDefs} = require("/shared/twitch-accounts");
 const botRoster = require("/shared/bot-roster");
+const {describeFetchError, clipLookbackMinutes, clipDelaySeconds} = require("/shared/clip-resilience");
 // 9.15.0 · Dynamische Bot-Liste: Die Konten kommen aus settings.installation.bots (Haupt-Bot, weitere Bots, Kanal-Konto).
 // accountMap wird bei Änderungen der Liste an Ort und Stelle neu aufgebaut (syncAccounts); Token-Dateien der Bestandsinstallation
 // bleiben in FILES, neue Bots bekommen <schlüssel>-token.json im Datenordner.
@@ -2291,7 +2292,13 @@ async function fetchRecentClips(minutes=10) {
   url.searchParams.set("started_at", startedAt.toISOString());
   url.searchParams.set("ended_at", endedAt.toISOString());
 
-  const r = await twitchAppFetch(url.toString());
+  let r;
+  try {
+    r = await twitchAppFetch(url.toString());
+  } catch (e) {
+    // 9.26.1: statt „fetch failed“ die Ursache nennen (DNS, Zeitüberschreitung, …)
+    throw new Error(describeFetchError(e, "Twitch (api.twitch.tv)"));
+  }
   const j = await r.json().catch(()=>({}));
 
   if (!r.ok) {
@@ -2303,6 +2310,9 @@ async function fetchRecentClips(minutes=10) {
 
 let clipMonitorBusy = false;
 let clipMonitorLastTickAt = 0;
+// 9.26.1: Zeitpunkt des letzten erfolgreichen Twitch-Abrufs. Im Prozess gemerkt, weil der Datenbank-Zustand
+// nur feste Spalten kennt; nach einem Neustart gilt wieder das normale Suchfenster.
+let clipLastSuccessAt = null;
 
 async function checkNewClips({manual=false}={}) {
   if (clipMonitorBusy) return {ok:true, skipped:"busy"};
@@ -2315,8 +2325,11 @@ async function checkNewClips({manual=false}={}) {
 
     const shareToTwitch = cfg.enabled && (!cfg.onlyLive || await isStreamLive());
 
-    const clips = await fetchRecentClips(10);
+    // 9.26.1: nach einem Ausfall ab dem letzten erfolgreichen Abruf suchen (bisher fest 10 Minuten).
+    const clips = await fetchRecentClips(clipLookbackMinutes(clipLastSuccessAt || state.lastSuccessAt));
     state.lastCheckedAt = new Date().toISOString();
+    state.lastSuccessAt = state.lastCheckedAt;
+    clipLastSuccessAt = state.lastCheckedAt;
     state.lastError = null;
 
     // Beim allerersten Lauf nur den aktuellen Bestand markieren.
@@ -2346,6 +2359,7 @@ async function checkNewClips({manual=false}={}) {
       const isFresh = pgStore.enabled ? !!pgStore.reserveClip(clip)?.inserted : !state.seen[clip.id];
       if(!isFresh) continue;
       fresh.push(clip);
+      const detectedAfterSeconds = clipDelaySeconds(clip.created_at);
       enqueueDiscordAnnouncement("clip",clip.id,{
         clipId:clip.id,
         title:clip.title||"Neuer Twitch-Clip",
@@ -2373,7 +2387,7 @@ async function checkNewClips({manual=false}={}) {
         }
 
         const sharedAt=new Date().toISOString();
-        state.lastShared = {id:clip.id,title:clip.title,url:clip.url,creator:clip.creator_name || "",createdAt:clip.created_at,sharedAt};
+        state.lastShared = {id:clip.id,title:clip.title,url:clip.url,creator:clip.creator_name || "",createdAt:clip.created_at,sharedAt,detectedAfterSeconds};
         if(pgStore.enabled)pgStore.markClipShared(clip,sharedAt);
         writeClipState(state);
 
@@ -2382,7 +2396,8 @@ async function checkNewClips({manual=false}={}) {
           clipId:clip.id,
           title:clip.title,
           url:clip.url,
-          creator:clip.creator_name || ""
+          creator:clip.creator_name || "",
+          detectedAfterSeconds
         });
       } catch (e) {
         console.error("⚠️ Clip konnte nicht geteilt werden:",e.message);
@@ -2422,12 +2437,12 @@ function startClipMonitor() {
     const cfg = normalizeClipSettings(settings);
 
     const now = Date.now();
-    const intervalMs = Math.max(15, Number(cfg.intervalSeconds || 20)) * 1000;
+    const intervalMs = Math.max(5, Number(cfg.intervalSeconds || 10)) * 1000;
     if (now - clipMonitorLastTickAt < intervalMs) return;
 
     clipMonitorLastTickAt = now;
     await checkNewClips();
-  }, 5000);
+  }, 2000);
 }
 
 let streamLiveCache = {

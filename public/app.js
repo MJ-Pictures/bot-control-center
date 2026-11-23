@@ -3384,7 +3384,7 @@ function renderLurk(){
 async function renderClips(){
   settings.clipSharing ||= {
     enabled:false,
-    intervalSeconds:20,
+    intervalSeconds:10,
     onlyLive:true,
     showCreator:true,
     message:"🎬 Neuer Clip: „{title}“ – erstellt von @{creator} {url}"
@@ -3418,7 +3418,7 @@ async function renderClips(){
         <div>
           <span class="fieldlabel">Prüfintervall</span>
           <div class="input-suffix">
-            <input id="clipInterval" type="number" min="15" max="120" value="${Number(c.intervalSeconds||20)}">
+            <input id="clipInterval" type="number" min="5" max="120" value="${Number(c.intervalSeconds||10)}">
             <span>Sek.</span>
           </div>
         </div>
@@ -3450,7 +3450,7 @@ async function renderClips(){
   const sync=()=>{
     c.enabled=$("clipEnabled").checked;
     c.bot=$("clipBot")?.value||c.bot||botDefault("clips");
-    c.intervalSeconds=Math.min(120,Math.max(15,Number($("clipInterval").value||20)));
+    c.intervalSeconds=Math.min(120,Math.max(5,Number($("clipInterval").value||10)));
     c.onlyLive=$("clipOnlyLive").checked;
     c.showCreator=$("clipShowCreator").checked;
     c.message=$("clipMessage").value;
@@ -3479,7 +3479,7 @@ async function renderClips(){
         <div class="clip-status-wide">
           <span class="fieldlabel">Zuletzt geteilt</span>
           ${last
-            ? `<div><strong>${esc(last.title||"Clip")}</strong> · @${esc(last.creator||"unbekannt")}<br><span class="hint">${esc(last.url||"")}</span></div>`
+            ? `<div><strong>${esc(last.title||"Clip")}</strong> · @${esc(last.creator||"unbekannt")}<br><span class="hint">${esc(last.url||"")}</span>${Number.isFinite(Number(last.detectedAfterSeconds))&&last.detectedAfterSeconds!==null?`<br><span class="hint">Twitch lieferte den Clip ${Number(last.detectedAfterSeconds)>=90?Math.round(Number(last.detectedAfterSeconds)/60)+" Min.":Number(last.detectedAfterSeconds)+" Sek."} nach dem Erstellen.</span>`:""}</div>`
             : `<span class="hint">Noch kein Clip durch den Clip-Bot geteilt.</span>`}
         </div>
         ${j.state?.lastError?`<div class="clip-error">⚠️ ${esc(j.state.lastError)}</div>`:""}
