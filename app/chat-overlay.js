@@ -7,14 +7,18 @@ const { sanitizeMessage, sanitizeEvent, plainText, BADGE_URL, clean } = require(
 
 const THEMES = Object.freeze(["dark", "light", "angular"]);
 const BOT_MODES = Object.freeze(["none", "game", "all"]);
-const FONTS = Object.freeze(["system", "akzidenz"]);
+const FONTS = Object.freeze(["system", "akzidenz", "custom"]);
+const ANCHORS = Object.freeze(["bottom", "top"]);
 const ALIGNS = Object.freeze(["left", "right"]);
 // Bekannte Fremdbots, die standardmäßig nicht im Overlay erscheinen sollen (anpassbar).
 const DEFAULT_IGNORED = Object.freeze(["nightbot", "streamelements", "streamlabs", "fossabot", "moobot", "wizebot"]);
 const DEFAULT_CONFIG = Object.freeze({
   delaySeconds: 2, maxMessages: 8, displaySeconds: 60, theme: "dark", align: "left", fontScale: 100,
   accentColor: "#FAB70A", font: "system", hideCommands: true, botMessages: "none", ignoredUsers: DEFAULT_IGNORED,
-  showBadges: true, showEmotes: true, nameColorDot: false, followCards: true, raidCards: true, subCards: true, bitsCards: true, redeemCards: false
+  showBadges: true, showEmotes: true, nameColorDot: false, followCards: true, raidCards: true, subCards: true, bitsCards: true, redeemCards: false,
+  // 9.27.3: Anpassung. Leere Farben und Schriftnamen bedeuten: Standard des gewählten Looks.
+  anchor: "bottom", widthPercent: 0, marginX: 24, marginY: 24, fontFamily: "",
+  tabColor: "", tabTextColor: "", bubbleColor: "", bubbleTextColor: "", textureOpacity: 60
 });
 // Welcher Schalter der Konfiguration gehört zu welcher Karte
 const EVENT_SWITCH = Object.freeze({ follow: "followCards", raid: "raidCards", sub: "subCards", resub: "subCards", gift: "subCards", gifts: "subCards", bits: "bitsCards", redeem: "redeemCards" });
@@ -62,6 +66,14 @@ function normalizeConfig(input, base = DEFAULT_CONFIG, strict = true) {
   apply("subCards", v => bool(v, "Abo-Karten"));
   apply("bitsCards", v => bool(v, "Bits-Karten"));
   apply("redeemCards", v => bool(v, "Kanalpunkte-Karten"));
+  apply("anchor", v => oneOf(v, ANCHORS, "Die Position (oben/unten)"));
+  apply("widthPercent", v => { const n = Number(v); if (n === 0) return 0; return int(v, 20, 100, "Die Breite"); });
+  apply("marginX", v => int(v, 0, 400, "Der seitliche Abstand"));
+  apply("marginY", v => int(v, 0, 400, "Der Abstand oben/unten"));
+  apply("textureOpacity", v => int(v, 5, 100, "Die Stärke der Textur"));
+  apply("fontFamily", v => { const t = String(v ?? "").trim(); if (t && !/^[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}$/.test(t)) throw new Error("Der Schriftname darf nur Buchstaben, Ziffern, Leerzeichen, Punkt, Strich und Unterstrich enthalten (höchstens 40 Zeichen)."); return t; });
+  for (const [key, label] of [["tabColor", "Farbe der Namensleiste"], ["tabTextColor", "Textfarbe der Namensleiste"], ["bubbleColor", "Farbe der Nachricht"], ["bubbleTextColor", "Textfarbe der Nachricht"]])
+    apply(key, v => { const t = String(v ?? "").trim(); if (t && !/^#[0-9a-fA-F]{6}$/.test(t)) throw new Error(`${label}: bitte wie #FAB70A angeben oder leer lassen.`); return t.toUpperCase(); });
   apply("accentColor", v => { if (!/^#[0-9a-fA-F]{6}$/.test(String(v))) throw new Error("Die Akzentfarbe muss wie #FAB70A aussehen."); return String(v).toUpperCase(); });
   apply("ignoredUsers", v => {
     const list = (Array.isArray(v) ? v : String(v ?? "").split(/[\s,;]+/)).map(x => String(x).trim().toLowerCase().replace(/^@/, "")).filter(Boolean);
@@ -101,7 +113,7 @@ function createBadgeCache({ fetchJson, channelId, now = () => Date.now(), ttlMs 
   return { ensure, url: (set, id) => map.get(`${set}/${id}`) || null, size: () => map.size };
 }
 
-function createChatOverlay({ read, write, badges = null, now = () => Date.now(), setTimer = (fn, ms) => setTimeout(fn, ms), clearTimer = h => clearTimeout(h) } = {}) {
+function createChatOverlay({ read, write, images = null, badges = null, now = () => Date.now(), setTimer = (fn, ms) => setTimeout(fn, ms), clearTimer = h => clearTimeout(h) } = {}) {
   let config = normalizeConfig(read?.() || {}, DEFAULT_CONFIG, false);
   const clients = new Set();
   const sseLimiter = createSseLimiter({ max: 20, perIp: 4 });
@@ -118,8 +130,18 @@ function createChatOverlay({ read, write, badges = null, now = () => Date.now(),
   }
   const publicConfig = () => ({
     theme: config.theme, align: config.align, fontScale: config.fontScale, maxMessages: config.maxMessages, displaySeconds: config.displaySeconds,
-    accentColor: config.accentColor, font: config.font, showBadges: config.showBadges, showEmotes: config.showEmotes, nameColorDot: config.nameColorDot
+    accentColor: config.accentColor, font: config.font, showBadges: config.showBadges, showEmotes: config.showEmotes, nameColorDot: config.nameColorDot,
+    anchor: config.anchor, widthPercent: config.widthPercent, marginX: config.marginX, marginY: config.marginY, fontFamily: config.fontFamily,
+    tabColor: config.tabColor, tabTextColor: config.tabTextColor, bubbleColor: config.bubbleColor, bubbleTextColor: config.bubbleTextColor, textureOpacity: config.textureOpacity,
+    images: safeImages()
   });
+  // Eigene Bilder der Installation (Symbole, Textur): nur Adressen der Form /branding/image/<Platz>?v=<Kennung> kommen ins Overlay.
+  const IMAGE_URL = /^\/branding\/image\/[A-Za-z]{1,30}\?v=[A-Za-z0-9]{1,16}$/;
+  function safeImages() {
+    const out = {};
+    try { for (const [slot, url] of Object.entries(images?.() || {})) if (/^chat[A-Za-z]+$/.test(slot) && IMAGE_URL.test(String(url))) out[slot] = String(url); } catch { /* ohne Bilder weiter */ }
+    return out;
+  }
   const getConfig = () => ({ ...config, ignoredUsers: config.ignoredUsers.slice() });
 
   function toPublic(m) {
@@ -265,7 +287,9 @@ function createChatOverlay({ read, write, badges = null, now = () => Date.now(),
     res.on("close", cleanup);
   }
 
-  return { configure, getConfig, handleChat, handleBotMessage, handleEvent, handleDelete, test, addSseClient, pendingCount: () => pending.size, clientCount: () => clients.size };
+  // Eigene Bilder haben sich geändert: Konfiguration erneut an alle geöffneten Quellen senden.
+  const refresh = () => { if (clients.size) broadcast("config", publicConfig()); };
+  return { refresh, configure, getConfig, handleChat, handleBotMessage, handleEvent, handleDelete, test, addSseClient, pendingCount: () => pending.size, clientCount: () => clients.size };
 }
 
 module.exports = { createChatOverlay, createBadgeCache, normalizeConfig, DEFAULT_CONFIG, THEMES, BOT_MODES, MAX_AGE_MS };

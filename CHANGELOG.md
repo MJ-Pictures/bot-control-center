@@ -2,6 +2,15 @@
 
 Dieses Dokument wird aus `public/changelog.json` erzeugt, dem Protokoll, das auch die Oberfläche anzeigt. Die neueste Version steht oben.
 
+## 9.27.3 – 2026-11-24
+
+**Chat-Overlay: Anpassung von Farben, Position, Schrift und Bildern**
+
+- Neue Karte „Anpassung“ in den Einstellungen des Chat-Overlays: Position oben oder unten, Abstand zum Rand, Breite in Prozent der Quelle sowie eigene Farben für Namensleiste und Nachricht (jeweils mit Textfarbe). Ohne gesetzten Haken gilt die Farbe des gewählten Looks.
+- Eigene Schrift: Neben der Systemschrift und Akzidenz kann ein beliebiger Schriftname eingetragen werden, der auf dem Gerät mit OBS oder Moblin installiert ist. Ist die Schrift dort nicht vorhanden, gilt die Systemschrift. Es wird keine Schriftdatei geladen.
+- Neue Bildplätze unter Administration → Profil & Branding: je ein eigenes Symbol für die Karten Follower, Raid, Abo, Geschenkabo, Bits und Kanalpunkte sowie eine kachelbare Textur über den Nachrichten (Stärke einstellbar). Ohne Upload erscheinen die eingebauten Symbole. Geöffnete Quellen übernehmen neue Bilder und Einstellungen sofort.
+- Alle Eingaben werden geprüft (Farben nur als #RRGGBB, Schriftname nur Buchstaben, Ziffern, Leerzeichen und . _ -, Bilder nur über die Bildplätze der Installation). Die Drittanbieter-Emotes (7TV, BTTV, FFZ) sind nicht enthalten.
+
 ## 9.27.2 – 2026-11-24
 
 **Chat-Overlay: Karten für Abos, Bits und Kanalpunkte**

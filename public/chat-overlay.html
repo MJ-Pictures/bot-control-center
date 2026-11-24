@@ -7,11 +7,13 @@
 html,body{width:100%;height:100%;margin:0;background:transparent;overflow:hidden}
 body{--accent:#FAB70A;--scale:1;--ink:#1b1d12;--olive:#2f3313;
   font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-weight:700;line-height:1.25}
+body[data-font="custom"]{font-family:var(--font,system-ui),system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
 body[data-font="akzidenz"]{font-family:"Akzidenz Grotesk Bold","Akzidenz-Grotesk BQ Bold",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
 /* Schriftgröße folgt der Breite der Browserquelle (1920 px Breite ≈ 31 px), Regler „Schriftgröße“ skaliert zusätzlich. */
-#chat{position:absolute;left:24px;bottom:24px;width:min(calc(100% - 48px),max(36vw,380px),780px);
+#chat{position:absolute;left:var(--mx,24px);bottom:var(--my,24px);width:min(calc(100% - 2*var(--mx,24px)),max(36vw,380px),780px);
   display:flex;flex-direction:column;align-items:flex-start;gap:.5em;font-size:calc(var(--scale)*clamp(15px,1.6vw,36px))}
-body[data-align="right"] #chat{left:auto;right:24px;align-items:flex-end}
+body[data-align="right"] #chat{left:auto;right:var(--mx,24px);align-items:flex-end}
+body[data-anchor="top"] #chat{bottom:auto;top:var(--my,24px)}
 .msg{display:flex;flex-direction:column;align-items:flex-start;max-width:100%;animation:in .32s ease-out both}
 body[data-align="right"] .msg{align-items:flex-end;animation-name:inRight}
 .msg.out{animation:out .35s ease-in both}
@@ -25,15 +27,15 @@ body[data-align="right"] .msg{align-items:flex-end;animation-name:inRight}
 .emote{height:1.55em;width:auto;vertical-align:middle;margin:-.2em .06em -.1em}
 
 /* Look „Dunkel“ */
-body[data-theme="dark"] .tab{background:var(--accent);color:var(--ink);clip-path:polygon(0 0,100% 0,calc(100% - .7em) 100%,0 100%);border-radius:.3em 0 0 0}
-body[data-theme="dark"] .bubble{background:rgba(22,25,30,.9);color:#fff;border:1px solid rgba(255,255,255,.12);border-left:.3em solid var(--accent);border-radius:0 .6em .6em .6em;box-shadow:0 .15em .5em rgba(0,0,0,.35)}
+body[data-theme="dark"] .tab{background:var(--tab,var(--accent));color:var(--tabfg,var(--ink));clip-path:polygon(0 0,100% 0,calc(100% - .7em) 100%,0 100%);border-radius:.3em 0 0 0}
+body[data-theme="dark"] .bubble{background:var(--bub,rgba(22,25,30,.9));color:var(--bubfg,#fff);border:1px solid rgba(255,255,255,.12);border-left:.3em solid var(--accent);border-radius:0 .6em .6em .6em;box-shadow:0 .15em .5em rgba(0,0,0,.35)}
 /* Look „Hell“ */
-body[data-theme="light"] .tab{background:linear-gradient(to right,var(--olive) calc(100% - 1em),var(--accent) calc(100% - 1em));color:#fff;padding-right:1.4em;clip-path:polygon(0 0,100% 0,calc(100% - .55em) 100%,0 100%);border-radius:.35em 0 0 0}
-body[data-theme="light"] .bubble{background:#f7f7f4;color:#1c1e14;border-radius:0 .9em .9em .9em;box-shadow:0 .15em .5em rgba(0,0,0,.28)}
+body[data-theme="light"] .tab{background:linear-gradient(to right,var(--tab,var(--olive)) calc(100% - 1em),var(--accent) calc(100% - 1em));color:var(--tabfg,#fff);padding-right:1.4em;clip-path:polygon(0 0,100% 0,calc(100% - .55em) 100%,0 100%);border-radius:.35em 0 0 0}
+body[data-theme="light"] .bubble{background:var(--bub,#f7f7f4);color:var(--bubfg,#1c1e14);border-radius:0 .9em .9em .9em;box-shadow:0 .15em .5em rgba(0,0,0,.28)}
 /* Look „Kantig“ */
-body[data-theme="angular"] .tab{background:linear-gradient(115deg,var(--olive) calc(100% - 1.25em),var(--accent) calc(100% - 1.25em),var(--accent) calc(100% - .9em),transparent calc(100% - .9em));color:#fff;
+body[data-theme="angular"] .tab{background:linear-gradient(115deg,var(--tab,var(--olive)) calc(100% - 1.25em),var(--accent) calc(100% - 1.25em),var(--accent) calc(100% - .9em),transparent calc(100% - .9em));color:var(--tabfg,#fff);
   padding:.16em 1.9em .12em 1em;clip-path:polygon(.55em 0,100% 0,calc(100% - .9em) 100%,0 100%)}
-body[data-theme="angular"] .bubble{margin-left:.8em;background:linear-gradient(to top,var(--accent) .24em,#f4f4f0 .24em);color:#1a1c10;padding:.4em 1.9em .62em 1.6em;
+body[data-theme="angular"] .bubble{margin-left:.8em;background:linear-gradient(to top,var(--accent) .24em,var(--bub,#f4f4f0) .24em);color:var(--bubfg,#1a1c10);padding:.4em 1.9em .62em 1.6em;
   clip-path:polygon(.9em 0,100% 0,calc(100% - .9em) 100%,0 100%);filter:none}
 body[data-theme="angular"] .msg{filter:drop-shadow(0 .12em .25em rgba(0,0,0,.4))}
 body[data-theme="angular"] .dot{box-shadow:0 0 0 .08em rgba(255,255,255,.7)}
@@ -50,6 +52,9 @@ body[data-theme="dark"] .dot,body[data-theme="light"] .dot{box-shadow:0 0 0 .08e
 .card .who{color:var(--accent)}
 body[data-theme="light"] .card .who,body[data-theme="angular"] .card .who{color:inherit;text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:.14em;text-underline-offset:.14em;text-decoration-skip-ink:none}
 .card .sub{font-size:.8em;opacity:.8;margin-left:.45em;font-weight:600}
+/* 9.27.3: Textur über der Blase und eigene Symbole (Bildplätze der Installation) */
+body.has-tex .bubble::before{content:"";position:absolute;inset:0;background:var(--tex) center/auto repeat;opacity:var(--texo,.6);pointer-events:none;border-radius:inherit}
+.ico.custom{-webkit-mask:none;mask:none;background-color:transparent;background-size:contain;background-position:center;background-repeat:no-repeat}
 @keyframes in{from{opacity:0;transform:translateX(-1.6em)}to{opacity:1;transform:none}}
 @keyframes inRight{from{opacity:0;transform:translateX(1.6em)}to{opacity:1;transform:none}}
 @keyframes out{from{opacity:1}to{opacity:0;transform:translateY(-.4em)}}

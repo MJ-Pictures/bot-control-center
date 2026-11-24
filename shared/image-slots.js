@@ -29,6 +29,34 @@ const SLOTS = Object.freeze({
     key: "favicon", label: "Browser-Symbol (Favicon)", hint: "Kleines Symbol im Browser-Tab und bei Lesezeichen (PNG, WebP, JPG, GIF oder ICO); ohne Upload erscheint ein neutrales Standardsymbol",
     recommended: { width: 256, height: 256 }, min: { width: 64, height: 64 }, ratio: 1, tolerance: 0.15
   }),
+  chatIconFollow: Object.freeze({
+    key: "chatIconFollow", label: "Chat-Overlay: Symbol Follower", hint: "Eigenes Symbol für die Karte „Neuer Follower“ im Chat-Overlay (quadratisch, am besten PNG mit transparentem Hintergrund); ohne Upload erscheint das eingebaute Herz",
+    recommended: { width: 256, height: 256 }, min: { width: 64, height: 64 }, ratio: 1, tolerance: 0.15
+  }),
+  chatIconRaid: Object.freeze({
+    key: "chatIconRaid", label: "Chat-Overlay: Symbol Raid", hint: "Eigenes Symbol für die Raid-Karte im Chat-Overlay (quadratisch, PNG mit transparentem Hintergrund); ohne Upload erscheint das eingebaute Symbol",
+    recommended: { width: 256, height: 256 }, min: { width: 64, height: 64 }, ratio: 1, tolerance: 0.15
+  }),
+  chatIconSub: Object.freeze({
+    key: "chatIconSub", label: "Chat-Overlay: Symbol Abo", hint: "Eigenes Symbol für die Abo-Karten (neu, verlängert) im Chat-Overlay (quadratisch, PNG mit transparentem Hintergrund); ohne Upload erscheint der eingebaute Stern",
+    recommended: { width: 256, height: 256 }, min: { width: 64, height: 64 }, ratio: 1, tolerance: 0.15
+  }),
+  chatIconGift: Object.freeze({
+    key: "chatIconGift", label: "Chat-Overlay: Symbol Geschenkabo", hint: "Eigenes Symbol für die Geschenkabo-Karten im Chat-Overlay (quadratisch, PNG mit transparentem Hintergrund); ohne Upload erscheint das eingebaute Geschenk",
+    recommended: { width: 256, height: 256 }, min: { width: 64, height: 64 }, ratio: 1, tolerance: 0.15
+  }),
+  chatIconBits: Object.freeze({
+    key: "chatIconBits", label: "Chat-Overlay: Symbol Bits", hint: "Eigenes Symbol für die Bits-Karte im Chat-Overlay (quadratisch, PNG mit transparentem Hintergrund); ohne Upload erscheint der eingebaute Diamant",
+    recommended: { width: 256, height: 256 }, min: { width: 64, height: 64 }, ratio: 1, tolerance: 0.15
+  }),
+  chatIconRedeem: Object.freeze({
+    key: "chatIconRedeem", label: "Chat-Overlay: Symbol Kanalpunkte", hint: "Eigenes Symbol für die Kanalpunkte-Karte im Chat-Overlay (quadratisch, PNG mit transparentem Hintergrund); ohne Upload erscheint das eingebaute Symbol",
+    recommended: { width: 256, height: 256 }, min: { width: 64, height: 64 }, ratio: 1, tolerance: 0.15
+  }),
+  chatTexture: Object.freeze({
+    key: "chatTexture", label: "Chat-Overlay: Textur der Nachrichten", hint: "Kachelbare Textur (quadratisch, nahtlos), die dezent über den Nachrichtenblasen im Chat-Overlay liegt; am besten PNG mit Transparenz. Ohne Upload keine Textur",
+    recommended: { width: 512, height: 512 }, min: { width: 128, height: 128 }, ratio: 1, tolerance: 0.15
+  }),
   logo: Object.freeze({
     key: "logo", label: "Logo der Weboberfläche", hint: "Erscheint links in der Kopfzeile",
     recommended: { width: 512, height: 512 }, min: { width: 128, height: 128 }, ratio: 1, tolerance: 0.15
@@ -127,7 +155,7 @@ function validateUpload(slotKey, buf) {
   return { ok: true, mime, ext: EXT[mime], width: size.width, height: size.height, bytes: buf.length };
 }
 
-const FILE_RE = /^(banner|emblem|gameFigure|subathonLogo|favicon|logo)-[0-9a-f]{12}\.(png|jpg|gif|webp|ico)$/;
+const FILE_RE = /^(banner|emblem|gameFigure|subathonLogo|favicon|logo|chatIconFollow|chatIconRaid|chatIconSub|chatIconGift|chatIconBits|chatIconRedeem|chatTexture)-[0-9a-f]{12}\.(png|jpg|gif|webp|ico)$/;
 
 // Gespeicherte Angaben je Platz bereinigen (nur bekannte Plätze, nur gültige Dateinamen).
 function normalizeImages(src) {
@@ -156,4 +184,7 @@ function slotInfo(slotKey) {
   return { key: s.key, label: s.label, hint: s.hint, recommended: { ...s.recommended }, min: { ...s.min }, maxBytes: MAX_BYTES, formats: slotKey === "favicon" ? ["PNG", "WebP", "JPG", "GIF", "ICO"] : ["PNG", "WebP", "JPG", "GIF"] };
 }
 
-module.exports = { SLOTS, SLOT_KEYS, MAX_BYTES, MAX_PIXELS, EXT, isSlot, sniffMime, imageSize, validateUpload, normalizeImages, slotInfo, FILE_RE };
+// 9.27.3: Bildplätze des Chat-Overlays (Symbole der Karten, Textur)
+const CHAT_OVERLAY_SLOTS = Object.freeze(["chatIconFollow", "chatIconRaid", "chatIconSub", "chatIconGift", "chatIconBits", "chatIconRedeem", "chatTexture"]);
+
+module.exports = { CHAT_OVERLAY_SLOTS, SLOTS, SLOT_KEYS, MAX_BYTES, MAX_PIXELS, EXT, isSlot, sniffMime, imageSize, validateUpload, normalizeImages, slotInfo, FILE_RE };

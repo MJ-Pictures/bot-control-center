@@ -248,3 +248,48 @@ test("Overlay-Seite: alle Kartenarten haben Text und Symbol, nur Text wird einge
   assert.doesNotMatch(js, /innerHTML/);
   assert.match(fs.readFileSync("public/app.js", "utf8"), /coSubCards[\s\S]*coBitsCards[\s\S]*coRedeemCards/);
 });
+
+// ---- 9.27.3: Anpassung (Farben, Position, Breite, Schrift, Bilder) ----
+test("Anpassung: Standardwerte und Prüfung der neuen Einstellungen", () => {
+  assert.deepEqual([DEFAULT_CONFIG.anchor, DEFAULT_CONFIG.widthPercent, DEFAULT_CONFIG.marginX, DEFAULT_CONFIG.marginY, DEFAULT_CONFIG.fontFamily, DEFAULT_CONFIG.tabColor, DEFAULT_CONFIG.textureOpacity], ["bottom", 0, 24, 24, "", "", 60]);
+  const s = setup();
+  for (const bad of [{ anchor: "mitte" }, { widthPercent: 10 }, { widthPercent: 101 }, { marginX: -1 }, { marginY: 401 }, { textureOpacity: 1 }, { tabColor: "red" }, { bubbleColor: "#12345" }, { tabTextColor: "url(x)" },
+    { fontFamily: 'x";}body{background:url(//evil)' }, { fontFamily: "a".repeat(41) }, { fontFamily: "-Name" }, { font: "comic" }])
+    assert.throws(() => s.overlay.configure(bad), undefined, JSON.stringify(bad));
+  const ok = s.overlay.configure({ anchor: "top", widthPercent: 40, marginX: 0, marginY: 400, textureOpacity: 100, tabColor: "#7a1f2b", bubbleTextColor: "", fontFamily: " Barlow Semi Condensed ", font: "custom" });
+  assert.deepEqual([ok.anchor, ok.widthPercent, ok.marginX, ok.marginY, ok.tabColor, ok.bubbleTextColor, ok.fontFamily, ok.font], ["top", 40, 0, 400, "#7A1F2B", "", "Barlow Semi Condensed", "custom"]);
+  assert.equal(s.overlay.configure({ widthPercent: 0 }).widthPercent, 0, "0 heißt automatisch");
+  assert.equal(s.events("config").at(-1).tabColor, "#7A1F2B");
+});
+test("Anpassung: eigene Bilder kommen nur mit geprüfter Adresse und nur für Chat-Plätze ins Overlay und werden bei Änderung nachgesendet", () => {
+  let imgs = { chatIconBits: "/branding/image/chatIconBits?v=abc123", logo: "/branding/image/logo?v=x", chatTexture: "http://evil.example/x.png", chatIconRaid: "/branding/image/chatIconRaid?v=1&x=2" };
+  const o = createChatOverlay({ read: () => ({}), write() {}, images: () => imgs });
+  const frames = [], res = Object.assign(new EventEmitter(), { writableLength: 0, writeHead() {}, write: f => frames.push(f), end() {} });
+  o.addSseClient(res, new EventEmitter(), "3.3.3.3");
+  assert.deepEqual(JSON.parse(frames[0].split("data: ")[1]).images, { chatIconBits: "/branding/image/chatIconBits?v=abc123" });
+  imgs = { chatTexture: "/branding/image/chatTexture?v=zz9" }; o.refresh();
+  assert.deepEqual(JSON.parse(frames.at(-1).split("data: ")[1]).images, { chatTexture: "/branding/image/chatTexture?v=zz9" });
+  const broken = createChatOverlay({ read: () => ({}), write() {}, images: () => { throw Error("kaputt"); } });
+  const f2 = [], r2 = Object.assign(new EventEmitter(), { writableLength: 0, writeHead() {}, write: f => f2.push(f), end() {} });
+  broken.addSseClient(r2, new EventEmitter(), "4.4.4.4"); assert.deepEqual(JSON.parse(f2[0].split("data: ")[1]).images, {});
+});
+test("Bildplätze: sieben neue Plätze für Symbole und Textur, Dateinamen und Prüfung der Uploads", () => {
+  const kit = require("../shared/image-slots");
+  assert.deepEqual([...kit.CHAT_OVERLAY_SLOTS], ["chatIconFollow", "chatIconRaid", "chatIconSub", "chatIconGift", "chatIconBits", "chatIconRedeem", "chatTexture"]);
+  const png = (w, h) => { const b = Buffer.alloc(64); Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(b); b.writeUInt32BE(13, 8); b.write("IHDR", 12); b.writeUInt32BE(w, 16); b.writeUInt32BE(h, 20); return b; };
+  for (const k of kit.CHAT_OVERLAY_SLOTS) {
+    assert.ok(kit.isSlot(k), k); assert.ok(kit.FILE_RE.test(`${k}-0123456789ab.png`), k); assert.equal(kit.validateUpload(k, png(256, 256)).ok, true, k);
+    assert.equal(kit.validateUpload(k, png(256, 128)).ok, false, "Seitenverhältnis " + k); assert.equal(kit.validateUpload(k, png(32, 32)).ok, false, "zu klein " + k);
+    assert.equal(kit.validateUpload(k, Buffer.from("<svg xmlns='http://www.w3.org/2000/svg'></svg>")).ok, false, "kein SVG " + k);
+  }
+  assert.ok(/^[A-Za-z]+$/.test("chatIconRedeem"), "Platzname passt zur Auslieferungsadresse /branding/image/<Platz>");
+});
+test("Anpassung: Server-Verdrahtung (Bilder, sofortige Meldung) und Seite nutzt nur Variablen und geprüfte Werte", () => {
+  const web = fs.readFileSync("app/server.js", "utf8"), js = fs.readFileSync("public/chat-overlay.js", "utf8"), html = fs.readFileSync("public/chat-overlay.html", "utf8"), app = fs.readFileSync("public/app.js", "utf8");
+  assert.match(web, /images:\(\)=>\{const b=brandingImages\(\);return Object\.fromEntries\(imageKit\.CHAT_OVERLAY_SLOTS/);
+  assert.match(web, /chatOverlay\.refresh\(\)/);
+  for (const v of ["--tab", "--tabfg", "--bub", "--bubfg", "--mx", "--my", "--tex"]) assert.ok(html.includes(`var(${v}`), v);
+  assert.match(js, /FONT_NAME\s*=/); assert.match(js, /IMAGE_URL\s*=/); assert.doesNotMatch(js, /innerHTML/);
+  assert.match(html, /body\[data-anchor="top"\]/); assert.match(html, /\.ico\.custom/); assert.match(html, /has-tex/);
+  for (const id of ["coAnchor", "coMarginX", "coMarginY", "coWidth", "coTabOn", "coBubTextOn", "coFontFamily", "coTexo"]) assert.ok(app.includes(`id="${id}"`), id);
+});

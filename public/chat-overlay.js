@@ -8,7 +8,10 @@ const demo = params.get("demo") === "1";
 const EMOTE = /^[A-Za-z0-9_-]{1,80}$/;
 const BADGE = /^https:\/\/static-cdn\.jtvnw\.net\/badges\/v1\/[0-9a-f-]{36}\/[1-4]$/i;
 const COLOR = /^#[0-9a-f]{6}$/i;
+const FONT_NAME = /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}$/;
+const IMAGE_URL = /^\/branding\/image\/[A-Za-z]{1,30}\?v=[A-Za-z0-9]{1,16}$/;
 const THEMES = ["dark", "light", "angular"];
+let images = {};   // eigene Bilder der Installation (Symbole, Textur), nur geprüfte Adressen
 let cfg = { theme: "dark", align: "left", fontScale: 100, maxMessages: 8, displaySeconds: 60, accentColor: "#FAB70A", font: "system", showBadges: true, showEmotes: true, nameColorDot: false };
 const items = new Map();   // Nachrichten-ID → { el, uid, timer }
 
@@ -22,7 +25,20 @@ function applyConfig(c) {
   const b = document.body;
   b.dataset.theme = THEMES.includes(theme) ? theme : "dark";
   b.dataset.align = align === "right" ? "right" : "left";
-  b.dataset.font = cfg.font === "akzidenz" ? "akzidenz" : "system";
+  const customFont = cfg.font === "custom" && FONT_NAME.test(String(cfg.fontFamily || ""));
+  b.dataset.font = cfg.font === "akzidenz" ? "akzidenz" : customFont ? "custom" : "system";
+  if (customFont) b.style.setProperty("--font", `"${cfg.fontFamily}"`); else b.style.removeProperty("--font");
+  b.dataset.anchor = cfg.anchor === "top" ? "top" : "bottom";
+  const px = (v, d) => Number.isFinite(Number(v)) ? Math.max(0, Math.min(400, Number(v))) : d;
+  b.style.setProperty("--mx", `${px(cfg.marginX, 24)}px`); b.style.setProperty("--my", `${px(cfg.marginY, 24)}px`);
+  const wp = Number(cfg.widthPercent);
+  chat.style.width = Number.isFinite(wp) && wp >= 20 && wp <= 100 ? `min(${wp}vw,calc(100% - 2*var(--mx,24px)))` : "";
+  for (const [key, prop] of [["tabColor", "--tab"], ["tabTextColor", "--tabfg"], ["bubbleColor", "--bub"], ["bubbleTextColor", "--bubfg"]])
+    if (COLOR.test(String(cfg[key] || ""))) b.style.setProperty(prop, cfg[key]); else b.style.removeProperty(prop);
+  images = {};
+  for (const [slot, url] of Object.entries(cfg.images || {})) if (/^chat[A-Za-z]+$/.test(slot) && IMAGE_URL.test(String(url))) images[slot] = String(url);
+  if (images.chatTexture) { b.style.setProperty("--tex", `url("${images.chatTexture}")`); b.style.setProperty("--texo", String(Math.max(0.05, Math.min(1, Number(cfg.textureOpacity) / 100 || 0.6)))); b.classList.add("has-tex"); }
+  else { b.style.removeProperty("--tex"); b.classList.remove("has-tex"); }
   b.style.setProperty("--accent", COLOR.test(cfg.accentColor) ? cfg.accentColor : "#FAB70A");
   b.style.setProperty("--scale", String(Math.min(1.6, Math.max(0.7, Number(cfg.fontScale) / 100 || 1))));
   trim();
@@ -46,12 +62,16 @@ const CARDS = {
   bits: { title: () => "Bits", sub: m => Number.isInteger(m.amount) ? plural(m.amount, "Bit", "Bits") : "" },
   redeem: { title: () => "Kanalpunkte", sub: m => m.title ? `löst „${m.title}“ ein` : "löst eine Belohnung ein" }
 };
+const ICON_SLOT = { follow: "chatIconFollow", raid: "chatIconRaid", sub: "chatIconSub", resub: "chatIconSub", gift: "chatIconGift", gifts: "chatIconGift", bits: "chatIconBits", redeem: "chatIconRedeem" };
 const ICON_CLASS = { follow: "follow", raid: "raid", sub: "sub", resub: "sub", gift: "gift", gifts: "gift", bits: "bits", redeem: "redeem" };
 function buildCard(m) {
   const kind = CARDS[m.event] ? m.event : "follow";
   const msg = el("div", `msg card ${ICON_CLASS[kind]}`);
   const tab = el("div", "tab");
-  tab.append(el("span", "ico"), el("span", "nm", CARDS[kind].title(m)));
+  const ico = el("span", "ico");
+  const own = images[ICON_SLOT[kind]];
+  if (own) { ico.classList.add("custom"); ico.style.backgroundImage = `url("${own}")`; }
+  tab.append(ico, el("span", "nm", CARDS[kind].title(m)));
   const bubble = el("div", "bubble");
   bubble.appendChild(el("span", "who", String(m.name || "")));
   const sub = CARDS[kind].sub(m);

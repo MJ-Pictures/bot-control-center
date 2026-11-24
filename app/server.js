@@ -132,6 +132,7 @@ function saveInstallationProfile(next){
   settingsNow.installation=installationKit.normalizeInstallation(next);
   writeJson(FILES.settings,settingsNow);
   installationCache=settingsNow.installation;installationCacheAt=Date.now();
+  try{chatOverlay.refresh();}catch{}   // 9.27.3: geänderte Bilder (Symbole, Textur) sofort an geöffnete Overlay-Quellen melden
   return installationCache;
 }
 function publicBaseInfo(){return installationKit.resolvePublicBaseUrl({envValue:ENV_PUBLIC_BASE_URL,installation:installationProfile()});}
@@ -592,7 +593,9 @@ function chatOverlayRedeemWanted(){try{return chatOverlay.getConfig().redeemCard
 const chatOverlay = createChatOverlay({
   read:()=>readJson(FILES.chatOverlay,{}),
   write:value=>writeJson(FILES.chatOverlay,value),
-  badges:chatBadgeCache
+  badges:chatBadgeCache,
+  // 9.27.3: eigene Symbole und Textur aus den Bildplätzen der Installation
+  images:()=>{const b=brandingImages();return Object.fromEntries(imageKit.CHAT_OVERLAY_SLOTS.filter(k=>b[k]?.mode==="upload").map(k=>[k,b[k].url]));}
 });
 const stubenkontrolle = createStubenkontrolle({
   dataDir:DATA_DIR,
