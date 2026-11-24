@@ -89,7 +89,7 @@ test("Neu geöffnete Quelle bekommt Konfiguration und Verlauf (nur Nicht-Abgelau
   s.overlay.addSseClient(res2, new EventEmitter(), "9.9.9.9"); assert.deepEqual(JSON.parse(got2[1].split("data: ")[1]), []);
 });
 test("Testnachrichten umgehen Filter und Verzögerung", () => {
-  const s = setup(); assert.equal(s.overlay.test(), 5); assert.equal(s.events("message").length, 5);   // seit 9.27.1: zwei Ereigniskarten und drei Nachrichten
+  const s = setup(); assert.equal(s.overlay.test(), 11); assert.equal(s.events("message").length, 11);   // seit 9.27.2: acht Ereigniskarten und drei Nachrichten
   assert.ok(s.events("message").every(m => m.id.startsWith("test-")));
 });
 test("Sicherheit: kein HTML, nur geprüfte Emote-Kennungen, Abzeichen nur mit Adresse des Bildservers", () => {
@@ -158,7 +158,7 @@ test("Ereigniskarten: Schalter, Dopplungen, ungültige und ältere Ereignisse", 
   const s = setup();
   assert.equal(s.overlay.handleEvent({ id: "f1", event: "follow", name: "Anna", at: s.now.t }), true);
   assert.equal(s.overlay.handleEvent({ id: "f1", event: "follow", name: "Anna", at: s.now.t }), false, "gleiche Kennung nur einmal");
-  assert.equal(s.overlay.handleEvent({ id: "x", event: "sub", name: "A" }), false);
+  assert.equal(s.overlay.handleEvent({ id: "x", event: "hype", name: "A" }), false);
   assert.equal(s.overlay.handleEvent({ id: "x y", event: "follow", name: "A" }), false);
   assert.equal(s.overlay.handleEvent({ id: "f2", event: "follow", name: "  ‮ " }), false);
   assert.equal(s.overlay.handleEvent({ id: "f3", event: "follow", name: "Alt", at: s.now.t - MAX_AGE_MS * 4 - 1 }), false);
@@ -186,4 +186,65 @@ test("Ereigniskarten: Verdrahtung (Raid wird gemeldet, Web hört auf Follow und 
   assert.match(js, /function buildCard/); assert.doesNotMatch(js, /innerHTML/);
   for (const f of ["herz", "raid"]) { assert.ok(fs.existsSync(`public/chat-overlay-icons/${f}.png`), f); assert.ok(html.includes(`/chat-overlay-icons/${f}.png`), f); }
   assert.match(fs.readFileSync("public/app.js", "utf8"), /coFollowCards[\s\S]*coRaidCards/);
+});
+
+// ---- 9.27.2: Karten für Abos, Bits und Kanalpunkte ----
+const notice = (type, extra = {}) => ({ notice_type: type, chatter_user_name: "Anna", chatter_user_login: "anna", chatter_is_anonymous: false, ...extra });
+test("Abo-Karten: neu, Prime, verlängert, einzelnes Geschenk, Sammelgeschenk; Rest wird ignoriert", () => {
+  const c = (ev, id = "n1") => core.compactEvent("notice", ev, id, 5);
+  assert.deepEqual([c(notice("sub", { sub: { sub_tier: "2000", is_prime: false } })).event, c(notice("sub", { sub: { sub_tier: "2000", is_prime: false } })).tier], ["sub", "2"]);
+  assert.equal(c(notice("sub", { sub: { sub_tier: "1000", is_prime: true } })).tier, "prime");
+  const re = c(notice("resub", { resub: { cumulative_months: 14, sub_tier: "1000", is_prime: false } }));
+  assert.deepEqual([re.event, re.amount, re.tier], ["resub", 14, "1"]);
+  const g = c(notice("sub_gift", { sub_gift: { recipient_user_name: "Bert", sub_tier: "1000", community_gift_id: null } }));
+  assert.deepEqual([g.event, g.target], ["gift", "Bert"]);
+  assert.equal(c(notice("sub_gift", { sub_gift: { recipient_user_name: "Bert", sub_tier: "1000", community_gift_id: "123" } })), null, "Einzelabos einer Sammelaktion ohne eigene Karte");
+  const gs = c(notice("community_sub_gift", { community_sub_gift: { total: 50, sub_tier: "1000" } }));
+  assert.deepEqual([gs.event, gs.amount], ["gifts", 50]);
+  for (const t of ["raid", "announcement", "gift_paid_upgrade", "shared_chat_sub", "unknown", ""]) assert.equal(c(notice(t)), null, t);
+  assert.equal(c(notice("community_sub_gift", { chatter_is_anonymous: true, community_sub_gift: { total: 5, sub_tier: "1000" } })).name, "Anonym");
+});
+test("Bits- und Kanalpunkte-Karten: Zahlen und Titel geprüft, Eingabe des Zuschauers wird nie übernommen", () => {
+  assert.equal(core.compactEvent("bits", { chatter_user_name: "Cheerer", bits: 100 }, "b1").amount, 100);
+  assert.equal(core.compactEvent("bits", { chatter_user_name: "Cheerer", bits: 0 }, "b2"), null);
+  const r = core.compactEvent("redeem", { user_name: "Fan", user_input: "<script>böse</script>", reward: { title: "10 Liegestütze", cost: 500 } }, "r1");
+  assert.deepEqual([r.event, r.amount, r.title], ["redeem", 500, "10 Liegestütze"]); assert.ok(!JSON.stringify(r).includes("böse"));
+  assert.equal(core.sanitizeEvent({ id: "x", event: "bits", name: "A", amount: -3 }).amount, undefined);
+  assert.equal(core.sanitizeEvent({ id: "x", event: "sub", name: "A", tier: "9999" }).tier, undefined);
+  assert.equal(core.sanitizeEvent({ id: "x", event: "follow", name: "A", amount: 5, title: "t", target: "z" }).amount, undefined, "Zusatzfelder nur bei passender Karte");
+});
+test("Karten-Schalter: Abos und Bits standardmäßig an, Kanalpunkte aus; jede Art hat ihren Schalter", () => {
+  assert.deepEqual([DEFAULT_CONFIG.subCards, DEFAULT_CONFIG.bitsCards, DEFAULT_CONFIG.redeemCards], [true, true, false]);
+  const s = setup(); const ev = (event, extra = {}) => s.overlay.handleEvent({ id: `e-${event}-${Math.random().toString(36).slice(2, 8)}`, event, name: "A", at: s.now.t, ...extra });
+  assert.equal(ev("sub", { tier: "1" }), true); assert.equal(ev("resub", { amount: 3 }), true); assert.equal(ev("gift", { target: "B" }), true);
+  assert.equal(ev("gifts", { amount: 5 }), true); assert.equal(ev("bits", { amount: 100 }), true); assert.equal(ev("redeem", { amount: 1, title: "T" }), false, "Kanalpunkte aus");
+  s.overlay.configure({ redeemCards: true, subCards: false, bitsCards: false });
+  assert.equal(ev("redeem", { amount: 1, title: "T" }), true); assert.equal(ev("sub"), false); assert.equal(ev("gifts", { amount: 2 }), false); assert.equal(ev("bits", { amount: 5 }), false);
+  const sent = s.events("message").find(m => m.event === "resub"); assert.deepEqual(sent, { id: sent.id, kind: "event", event: "resub", name: "A", viewers: null, amount: 3 });
+  assert.throws(() => s.overlay.configure({ subCards: 1 }));
+});
+test("Abo-, Bits- und Kanalpunkte-Karten: Verdrahtung Bot, Web, Rechte und Kanal-Verbindung", () => {
+  const rt = fs.readFileSync("shared/twitch-runtime.js", "utf8"), web = fs.readFileSync("app/server.js", "utf8");
+  assert.match(rt, /createEventSub\("channel\.chat\.notification", "1"/); assert.match(rt, /twitchEvents\.emit\("chat-notice"/); assert.match(rt, /twitchEvents\.emit\("chat-bits"/);
+  assert.ok(rt.includes('"channel.channel_points_custom_reward_redemption.add":"chat-redeem"'));
+  for (const ev of ["chat-notice", "chat-bits", "chat-redeem"]) assert.ok(web.includes(`twitchEvents.on("${ev}"`), ev);
+  const accounts = require("../shared/twitch-accounts");
+  assert.deepEqual(accounts.REDEMPTION_CHANNEL_SCOPES, ["channel:read:redemptions"]);
+  const need = o => accounts.twitchAccountDefs("kanal", undefined, o).flatMap(d => d.requiredScopes);
+  assert.ok(!need({}).includes("channel:read:redemptions"), "ohne Karte kein zusätzliches Recht");
+  assert.ok(need({ redemptions: true }).includes("channel:read:redemptions")); assert.ok(!need({ redemptions: true }).includes("bits:read"));
+  assert.ok(need({ subathon: true, redemptions: true }).includes("bits:read"));
+  const { createChannelEventSub, REDEMPTION_TYPE } = require("../shared/twitch-channel-eventsub");
+  assert.equal(REDEMPTION_TYPE[0], "channel.channel_points_custom_reward_redemption.add");
+  const made = []; let wanted = [["a.b", "1"]];
+  class FakeWS { static OPEN = 1; constructor() { this.readyState = 1; setTimeout(() => this.onmessage({ data: JSON.stringify({ metadata: { message_type: "session_welcome" }, payload: { session: { id: "s1" } } }) }), 0); } close() {} }
+  const conn = createChannelEventSub({ WebSocketImpl: FakeWS, types: () => wanted, createSubscription: async t => { made.push(t); return { ok: true, status: 202 }; }, onNotification: async () => {}, log: { warn() {} }, setTick: () => 0, clearTick() {}, setTimer: () => 0 });
+  conn.start(); return new Promise(res => setTimeout(() => { conn.stop(); assert.deepEqual(made, ["a.b"]); res(); }, 30));
+});
+test("Overlay-Seite: alle Kartenarten haben Text und Symbol, nur Text wird eingesetzt", () => {
+  const js = fs.readFileSync("public/chat-overlay.js", "utf8"), html = fs.readFileSync("public/chat-overlay.html", "utf8");
+  for (const k of ["follow", "raid", "sub", "resub", "gift", "gifts", "bits", "redeem"]) assert.ok(new RegExp(`\\b${k}:\\s*\\{ title`).test(js), k);
+  for (const f of ["herz", "raid", "abo", "geschenk", "bits", "funken"]) { assert.ok(fs.existsSync(`public/chat-overlay-icons/${f}.png`), f); assert.ok(html.includes(`/chat-overlay-icons/${f}.png`), f); }
+  assert.doesNotMatch(js, /innerHTML/);
+  assert.match(fs.readFileSync("public/app.js", "utf8"), /coSubCards[\s\S]*coBitsCards[\s\S]*coRedeemCards/);
 });

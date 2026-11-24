@@ -15,7 +15,7 @@ const SUBATHON_TYPES = Object.freeze([
 function createChannelEventSub({
   WebSocketImpl = globalThis.WebSocket,
   url = EVENTSUB_URL,
-  types = SUBATHON_TYPES,
+  types = SUBATHON_TYPES,                // Liste oder Funktion, die bei jedem Verbindungsaufbau die gewünschte Liste liefert
   createSubscription,            // async (type, version, sessionId) => { ok, status, error }
   onNotification,                // async (type, event, metadata) => void
   log = console,
@@ -65,7 +65,7 @@ function createChannelEventSub({
 
   async function subscribeAll(sid, gen) {
     st.subscriptions = {};
-    for (const [type, version] of types) {
+    for (const [type, version] of (typeof types === "function" ? types() : types)) {
       if (gen !== generation) return;
       try {
         const r = await createSubscription(type, version, sid);
@@ -146,4 +146,7 @@ function createChannelEventSub({
   return Object.freeze({ start, stop, status, isWanted: () => wanted });
 }
 
-module.exports = { createChannelEventSub, SUBATHON_TYPES, EVENTSUB_URL };
+// 9.27.2: Kanalpunkte-Einlösungen (Chat-Overlay) laufen über dieselbe Verbindung des Kanal-Kontos.
+const REDEMPTION_TYPE = Object.freeze(["channel.channel_points_custom_reward_redemption.add", "1"]);
+
+module.exports = { createChannelEventSub, SUBATHON_TYPES, REDEMPTION_TYPE, EVENTSUB_URL };

@@ -14,8 +14,10 @@ const DEFAULT_IGNORED = Object.freeze(["nightbot", "streamelements", "streamlabs
 const DEFAULT_CONFIG = Object.freeze({
   delaySeconds: 2, maxMessages: 8, displaySeconds: 60, theme: "dark", align: "left", fontScale: 100,
   accentColor: "#FAB70A", font: "system", hideCommands: true, botMessages: "none", ignoredUsers: DEFAULT_IGNORED,
-  showBadges: true, showEmotes: true, nameColorDot: false, followCards: true, raidCards: true
+  showBadges: true, showEmotes: true, nameColorDot: false, followCards: true, raidCards: true, subCards: true, bitsCards: true, redeemCards: false
 });
+// Welcher Schalter der Konfiguration gehört zu welcher Karte
+const EVENT_SWITCH = Object.freeze({ follow: "followCards", raid: "raidCards", sub: "subCards", resub: "subCards", gift: "subCards", gifts: "subCards", bits: "bitsCards", redeem: "redeemCards" });
 const MAX_AGE_MS = 30000;          // Nachrichten, die länger unterwegs waren, werden nicht mehr gezeigt
 const MAX_PENDING = 200;
 const MAX_RECENT = 40;
@@ -57,6 +59,9 @@ function normalizeConfig(input, base = DEFAULT_CONFIG, strict = true) {
   apply("nameColorDot", v => bool(v, "Namensfarbe"));
   apply("followCards", v => bool(v, "Follow-Karten"));
   apply("raidCards", v => bool(v, "Raid-Karten"));
+  apply("subCards", v => bool(v, "Abo-Karten"));
+  apply("bitsCards", v => bool(v, "Bits-Karten"));
+  apply("redeemCards", v => bool(v, "Kanalpunkte-Karten"));
   apply("accentColor", v => { if (!/^#[0-9a-fA-F]{6}$/.test(String(v))) throw new Error("Die Akzentfarbe muss wie #FAB70A aussehen."); return String(v).toUpperCase(); });
   apply("ignoredUsers", v => {
     const list = (Array.isArray(v) ? v : String(v ?? "").split(/[\s,;]+/)).map(x => String(x).trim().toLowerCase().replace(/^@/, "")).filter(Boolean);
@@ -118,7 +123,11 @@ function createChatOverlay({ read, write, badges = null, now = () => Date.now(),
   const getConfig = () => ({ ...config, ignoredUsers: config.ignoredUsers.slice() });
 
   function toPublic(m) {
-    if (m.kind === "event") return { id: m.id, kind: "event", event: m.event, name: m.name, viewers: m.viewers };
+    if (m.kind === "event") {
+      const out = { id: m.id, kind: "event", event: m.event, name: m.name, viewers: m.viewers };
+      for (const k of ["amount", "tier", "target", "title"]) if (m[k] !== undefined) out[k] = m[k];
+      return out;
+    }
     const out = { id: m.id, uid: m.uid, name: m.name, color: m.color, parts: m.parts, reply: m.reply, kind: m.kind };
     out.badges = config.showBadges ? m.badges.map(b => ({ s: b.s, i: b.i, u: badges?.url?.(b.s, b.i) || null })) : [];
     return out;
@@ -166,8 +175,7 @@ function createChatOverlay({ read, write, badges = null, now = () => Date.now(),
   function handleEvent(raw) {
     const m = sanitizeEvent(raw);
     if (!m) return false;
-    if (m.event === "follow" && !config.followCards) return false;
-    if (m.event === "raid" && !config.raidCards) return false;
+    if (!config[EVENT_SWITCH[m.event]]) return false;
     if (m.at && now() - m.at > MAX_AGE_MS * 4) return false;
     if (recent.some(r => r.message.id === m.id)) return false;
     deliver(m);
@@ -222,7 +230,12 @@ function createChatOverlay({ read, write, badges = null, now = () => Date.now(),
       ["Mod_Beispiel", "#2EB87A", "Ton und Bild sind in Ordnung."]
     ];
     let n = 0;
-    const cards = [{ event: "follow", name: "Testnutzer" }, { event: "raid", name: "Beispielkanal", viewers: 12 }];
+    const cards = [
+      { event: "follow", name: "Testnutzer" }, { event: "raid", name: "Beispielkanal", viewers: 12 },
+      { event: "sub", name: "Abo_Beispiel", tier: "1" }, { event: "resub", name: "Treue_Seele", amount: 14, tier: "1" },
+      { event: "gift", name: "Spender", target: "Glückspilz", tier: "1" }, { event: "gifts", name: "Grossspender", amount: 10, tier: "1" },
+      { event: "bits", name: "Cheerer", amount: 100 }, { event: "redeem", name: "Fitnessfan", amount: 500, title: "10 Liegestütze" }
+    ];
     for (const c of cards) {
       const m = sanitizeEvent({ id: `test-${now().toString(36)}-${++testSeq}`, ...c, at: now() });
       if (m) { deliver(m); n++; }

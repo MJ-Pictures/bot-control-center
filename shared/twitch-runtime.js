@@ -45,15 +45,23 @@ function tokenFileFor(roster, tokenKey) {
 }
 // 9.20.0: Modul „Subathon“ an? (beim ersten Aufruf beim Laden noch nicht lesbar → aus)
 function subathonModuleOn() { try { return isModuleEnabled(normalizeModuleSettings(prepareSettings(readJson(FILES.settings, DEFAULT_SETTINGS))), "subathon"); } catch { return false; } }
+// 9.27.2: Kanalpunkte-Karten des Chat-Overlays angefordert? (Modul an und Karte eingeschaltet)
+function redeemCardsWanted() {
+  try {
+    if (!isModuleEnabled(normalizeModuleSettings(prepareSettings(readJson(FILES.settings, DEFAULT_SETTINGS))), "chatOverlay")) return false;
+    return readJson(FILES.chatOverlay, {})?.redeemCards === true;
+  } catch { return false; }
+}
 function syncAccounts(force) {
   let roster;
   try { roster = rosterFromSettings(); } catch { return false; }
   const subathonOn = subathonModuleOn();
-  const sig = JSON.stringify(roster) + "|" + CHANNEL_LOGIN + "|subathon:" + subathonOn;
+  const redeemOn = redeemCardsWanted();
+  const sig = JSON.stringify(roster) + "|" + CHANNEL_LOGIN + "|subathon:" + subathonOn + "|redeem:" + redeemOn;
   if (!force && sig === rosterSignature) return false;
   rosterSignature = sig; currentRoster = roster;
   for (const k of Object.keys(accountMap)) delete accountMap[k];
-  for (const d of twitchAccountDefs(CHANNEL_LOGIN, roster, {subathon: subathonOn})) {
+  for (const d of twitchAccountDefs(CHANNEL_LOGIN, roster, {subathon: subathonOn, redemptions: redeemOn})) {
     accountMap[d.key] = {tokenFile: tokenFileFor(roster, d.tokenKey), login: d.login, displayName: d.displayName, type: d.type, purpose: d.purpose, requiredScopes: [...d.requiredScopes]};
   }
   return true;
@@ -1541,6 +1549,11 @@ async function handleChat(ev) {
   // 9.27.0: Chat-Overlay. Erst hier, nach allen Filtern: Was gelöscht oder sanktioniert wurde, ist oben schon ausgestiegen.
   if (isModuleEnabled(settings, "chatOverlay")) {
     try { const compact = compactChatEvent(ev); if (compact) emitChatOverlay("chat", compact); } catch {}
+    // 9.27.2: Bits-Karte. Die Nachricht selbst läuft wie jede andere durch das Overlay; die Karte meldet nur Name und Anzahl.
+    try {
+      const bits = Number(ev?.cheer?.bits);
+      if (bits > 0 && ev.message_id) await twitchEvents.emit("chat-bits", {event: {chatter_user_name: ev.chatter_user_name, chatter_user_login: ev.chatter_user_login, bits}, metadata: {message_id: `bits-${ev.message_id}`}});
+    } catch (e) { console.warn("⚠️ Bits-Karte konnte nicht gemeldet werden:", e?.message || e); }
   }
 
   // 9.1.0: Lurk-Command registrieren bzw. Rückkehr melden. Läuft vor den Commands, damit der
@@ -1877,6 +1890,9 @@ async function subscribeAll() {
   for (const deleteType of ["channel.chat.message_delete", "channel.chat.clear_user_messages", "channel.chat.clear"]) {
     await createEventSub(deleteType, "1", { broadcaster_user_id: ids.channel, user_id: ids[mainBotKey()] }, mainBotKey());
   }
+
+  // 9.27.2: Abo-Karten (Abo, Verlängerung, Geschenkabos) über die Chat-Benachrichtigung; gleiche Berechtigung wie der Chat-Empfang.
+  await createEventSub("channel.chat.notification", "1", { broadcaster_user_id: ids.channel, user_id: ids[mainBotKey()] }, mainBotKey());
 }
 
 let followMessageCursor=0;
@@ -1914,6 +1930,20 @@ async function handleNotification(payload) {
       normalizeModuleSettings(settings);
       if (isModuleEnabled(settings, "chatOverlay")) { const d = compactDeleteEvent(type, ev); if (d) emitChatOverlay("chat-delete", d); }
     } catch {}
+    return;
+  }
+
+  // 9.27.2: Abo-Karten des Chat-Overlays (Abo, Verlängerung, Geschenkabos) aus der Chat-Benachrichtigung. Es wird nur das
+  // Nötigste weitergegeben, nicht die Nachricht des Zuschauers.
+  if (type === "channel.chat.notification") {
+    try {
+      const settings = readJson(FILES.settings, DEFAULT_SETTINGS);
+      normalizeModuleSettings(settings);
+      if (isModuleEnabled(settings, "chatOverlay") && ["sub", "resub", "sub_gift", "community_sub_gift"].includes(ev?.notice_type) && ev.message_id) {
+        const {notice_type, chatter_user_name, chatter_user_login, chatter_is_anonymous, sub, resub, sub_gift, community_sub_gift} = ev;
+        await twitchEvents.emit("chat-notice", {event: {notice_type, chatter_user_name, chatter_user_login, chatter_is_anonymous, sub, resub, sub_gift, community_sub_gift}, metadata: {message_id: `n-${ev.message_id}`}});
+      }
+    } catch (e) { console.warn("⚠️ Abo-Karte konnte nicht gemeldet werden:", e?.message || e); }
     return;
   }
 
@@ -2245,13 +2275,20 @@ function openEventSubSocket(url,{twitchReconnect=false,previousSocket=null}={}){
 // 9.20.3: Subathon – eigene EventSub-Verbindung mit dem Token des Kanal-Kontos (Abos, Geschenkabos, Resubs, Bits).
 // Läuft nur, solange das Modul eingeschaltet ist und das Kanal-Konto verbunden wurde. Ereignisnamen ohne Punkt, weil der
 // Weg zur Weboberfläche nur [a-z0-9-] erlaubt.
-const SUBATHON_EVENT_NAMES = Object.freeze({"channel.subscribe":"subathon-subscribe","channel.subscription.gift":"subathon-gift","channel.subscription.message":"subathon-resub","channel.cheer":"subathon-cheer"});
+const SUBATHON_EVENT_NAMES = Object.freeze({"channel.subscribe":"subathon-subscribe","channel.subscription.gift":"subathon-gift","channel.subscription.message":"subathon-resub","channel.cheer":"subathon-cheer","channel.channel_points_custom_reward_redemption.add":"chat-redeem"});
 const subathonChannelKey = () => currentRoster.channel.key;
 let subathonConn = null, subathonTick = null;
 function subathonConnection() {
   if (subathonConn) return subathonConn;
-  const {createChannelEventSub} = require("/shared/twitch-channel-eventsub");
+  const {createChannelEventSub, SUBATHON_TYPES, REDEMPTION_TYPE} = require("/shared/twitch-channel-eventsub");
   subathonConn = createChannelEventSub({
+    // Abos und Bits nur für das Subathon-Modul; Kanalpunkte nur für die Karte des Chat-Overlays und nur, wenn das Konto das Recht dazu hat.
+    types: () => {
+      const list = subathonModuleOn() ? [...SUBATHON_TYPES] : [];
+      let scopes = []; try { const t = loadToken(subathonChannelKey()); scopes = t?.scope ?? t?.scopes ?? []; } catch {}
+      if (redeemCardsWanted() && scopes.includes("channel:read:redemptions")) list.push(REDEMPTION_TYPE);
+      return list;
+    },
     createSubscription: async (type, version, sessionId) => {
       if (!ids.channel) await resolveIds();
       const r = await twitchFetch(subathonChannelKey(), "https://api.twitch.tv/helix/eventsub/subscriptions", {
@@ -2278,7 +2315,7 @@ let subathonScopeSig = "";
 async function ensureSubathonConnection() {
   syncAccounts();
   const conn = subathonConnection();
-  const on = subathonModuleOn();
+  const on = subathonModuleOn() || redeemCardsWanted();   // Verbindung des Kanal-Kontos: Subathon oder Kanalpunkte-Karte
   let tok = null; try { tok = loadToken(subathonChannelKey()); } catch {}
   const hasToken = !!tok?.access_token;
   const sig = JSON.stringify(tok?.scope ?? tok?.scopes ?? []);

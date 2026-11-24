@@ -33,15 +33,29 @@ function el(tag, className, text) {
   if (text !== undefined) e.textContent = text;
   return e;
 }
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+const TIER = { "1": "Stufe 1", "2": "Stufe 2", "3": "Stufe 3", prime: "Prime" };
+// Titel und Untertext jeder Kartenart; alle Texte werden als Text eingesetzt.
+const CARDS = {
+  follow: { title: () => "Neuer Follower", sub: () => "" },
+  raid: { title: () => "Raid", sub: m => Number.isInteger(m.viewers) ? `mit ${plural(m.viewers, "Zuschauer", "Zuschauern")}` : "" },
+  sub: { title: () => "Neuer Abonnent", sub: m => TIER[m.tier] || "" },
+  resub: { title: () => "Abo verlängert", sub: m => [Number.isInteger(m.amount) ? `seit ${plural(m.amount, "Monat", "Monaten")}` : "", TIER[m.tier] || ""].filter(Boolean).join(" · ") },
+  gift: { title: () => "Geschenkabo", sub: m => m.target ? `schenkt ${m.target} ein Abo` : "verschenkt ein Abo" },
+  gifts: { title: () => "Geschenkabos", sub: m => Number.isInteger(m.amount) ? `verschenkt ${m.amount === 1 ? "ein Abo" : plural(m.amount, "Abo", "Abos")}` : "verschenkt Abos" },
+  bits: { title: () => "Bits", sub: m => Number.isInteger(m.amount) ? plural(m.amount, "Bit", "Bits") : "" },
+  redeem: { title: () => "Kanalpunkte", sub: m => m.title ? `löst „${m.title}“ ein` : "löst eine Belohnung ein" }
+};
+const ICON_CLASS = { follow: "follow", raid: "raid", sub: "sub", resub: "sub", gift: "gift", gifts: "gift", bits: "bits", redeem: "redeem" };
 function buildCard(m) {
-  const raid = m.event === "raid";
-  const msg = el("div", `msg card ${raid ? "raid" : "follow"}`);
+  const kind = CARDS[m.event] ? m.event : "follow";
+  const msg = el("div", `msg card ${ICON_CLASS[kind]}`);
   const tab = el("div", "tab");
-  tab.append(el("span", "ico"), el("span", "nm", raid ? "Raid" : "Neuer Follower"));
+  tab.append(el("span", "ico"), el("span", "nm", CARDS[kind].title(m)));
   const bubble = el("div", "bubble");
   bubble.appendChild(el("span", "who", String(m.name || "")));
-  const n = Number(m.viewers);
-  if (raid && Number.isInteger(n) && n >= 0) bubble.appendChild(el("span", "sub", `mit ${n} ${n === 1 ? "Zuschauer" : "Zuschauern"}`));
+  const sub = CARDS[kind].sub(m);
+  if (sub) bubble.appendChild(el("span", "sub", sub));
   msg.append(tab, bubble);
   return msg;
 }
@@ -130,6 +144,9 @@ function startDemo() {
   // Beispiel-Ereigniskarten, damit auch sie in der Vorschau zu sehen sind
   setTimeout(() => add({ id: "demo-follow", kind: "event", event: "follow", name: "Nachtfuchs89" }), 1200);
   setTimeout(() => add({ id: "demo-raid", kind: "event", event: "raid", name: "BeispielKanal", viewers: 24 }), 4200);
+  setTimeout(() => add({ id: "demo-resub", kind: "event", event: "resub", name: "Treue_Seele", amount: 14, tier: "1" }), 6600);
+  setTimeout(() => add({ id: "demo-bits", kind: "event", event: "bits", name: "Cheerer", amount: 100 }), 9000);
+  setTimeout(() => add({ id: "demo-redeem", kind: "event", event: "redeem", name: "Fitnessfan", amount: 500, title: "10 Liegestütze" }), 11400);
 }
 
 applyConfig({});

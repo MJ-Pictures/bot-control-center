@@ -2,6 +2,15 @@
 
 Dieses Dokument wird aus `public/changelog.json` erzeugt, dem Protokoll, das auch die Oberfläche anzeigt. Die neueste Version steht oben.
 
+## 9.27.2 – 2026-11-24
+
+**Chat-Overlay: Karten für Abos, Bits und Kanalpunkte**
+
+- Das Chat-Overlay zeigt jetzt auch Karten für Abos (neuer Abonnent, Verlängerung mit Monatszahl, Geschenkabo, Sammel-Geschenkabos), für Bits und für eingelöste Kanalpunkte-Belohnungen (zum Beispiel „10 Liegestütze“). Die Karten folgen dem gewählten Look und der Akzentfarbe, jede Art hat ein eigenes Symbol.
+- Abo- und Bits-Karten sind standardmäßig an und brauchen keine neuen Rechte. Bei einer Sammelaktion erscheint nur eine Karte („verschenkt 50 Abos“), nicht eine pro Empfänger. Anonyme Spender erscheinen als „Anonym“.
+- Die Kanalpunkte-Karte ist standardmäßig aus. Wird sie eingeschaltet, braucht das Kanal-Konto das zusätzliche Recht „Einlösungen lesen“ und muss unter Administration → Verbindungen einmal neu verbunden werden. Die Eingabe des Zuschauers bei einer Einlösung wird nie angezeigt.
+- Neu im Bot: Abonnement-Benachrichtigungen werden zusätzlich abonniert (gleiche Berechtigung wie der Chat-Empfang); die Kanalpunkte laufen über die Verbindung des Kanal-Kontos, die auch das Subathon-Modul nutzt.
+
 ## 9.27.1 – 2026-11-24
 
 **Chat-Overlay: Karten für neue Follower und Raids**

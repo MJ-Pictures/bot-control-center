@@ -8,12 +8,14 @@
 const MAIN_BOT_SCOPES = ["user:read:chat","user:write:chat","user:bot","moderator:manage:chat_messages","moderator:manage:banned_users","moderator:manage:blocked_terms","moderator:read:followers","moderator:manage:automod","moderator:read:chatters"];
 // 9.20.0: Mit dem Modul „Subathon“ braucht das Kanal-Konto zusätzlich Abo- und Bits-Rechte (nur dann, damit andere Installationen nicht neu verbinden müssen).
 const SUBATHON_CHANNEL_SCOPES = ["channel:read:subscriptions","bits:read"];
+// 9.27.2: Kanalpunkte-Karten im Chat-Overlay (Einlösungen lesen). Nur angefordert, wenn die Karte eingeschaltet ist.
+const REDEMPTION_CHANNEL_SCOPES = ["channel:read:redemptions"];
 function twitchAccountDefs(channelLogin, roster, opts){
   const botRoster = require("./bot-roster");
-  return botRoster.accountDefsFromRoster(roster || botRoster.freshRoster(), MAIN_BOT_SCOPES, channelLogin, opts?.subathon === true ? SUBATHON_CHANNEL_SCOPES : []);
+  return botRoster.accountDefsFromRoster(roster || botRoster.freshRoster(), MAIN_BOT_SCOPES, channelLogin, [...(opts?.subathon === true ? SUBATHON_CHANNEL_SCOPES : []), ...(opts?.redemptions === true ? REDEMPTION_CHANNEL_SCOPES : [])]);
 }
 // Sicht für die Weboberfläche: ohne tokenKey.
 function publicTwitchAccounts(channelLogin, roster, opts){
   return twitchAccountDefs(channelLogin, roster, opts).map(({tokenKey,...rest})=>({...rest,requiredScopes:[...rest.requiredScopes]}));
 }
-module.exports={twitchAccountDefs,publicTwitchAccounts,MAIN_BOT_SCOPES,SUBATHON_CHANNEL_SCOPES};
+module.exports={twitchAccountDefs,publicTwitchAccounts,MAIN_BOT_SCOPES,SUBATHON_CHANNEL_SCOPES,REDEMPTION_CHANNEL_SCOPES};

@@ -493,7 +493,7 @@ const {publicTwitchAccounts} = require("/shared/twitch-accounts");
 // 9.15.0: Konten und Bots kommen aus der Bot-Liste der Installation (Profil & Branding), nicht mehr fest aus dem Code.
 const botRoster = require("/shared/bot-roster");
 const botRosterNow = () => installationProfile().bots;
-const twitchAccounts = () => publicTwitchAccounts(CHANNEL_LOGIN, botRosterNow(), {subathon:moduleOn("subathon")});
+const twitchAccounts = () => publicTwitchAccounts(CHANNEL_LOGIN, botRosterNow(), {subathon:moduleOn("subathon"),redemptions:moduleOn("chatOverlay")&&chatOverlayRedeemWanted()});
 // Kanal-Login: Umgebung (TWITCH_CHANNEL_LOGIN) vor Profil. Er bestimmt auch, wer Besitzer ist.
 const channelLoginNow = () => CHANNEL_LOGIN || botRosterNow().channel.login || "";
 // Für Vergleiche: ist kein Kanal-Login gesetzt, passt kein Benutzer (leer darf nie Besitzer ergeben).
@@ -587,6 +587,8 @@ const chatBadgeCache = createBadgeCache({
   fetchJson: async url => { const r = await twitchAppFetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); },
   channelId: async () => await twitchRuntime.channelId()
 });
+// 9.27.2: Kanalpunkte-Karten brauchen ein zusätzliches Recht des Kanal-Kontos; nur anfordern, wenn die Karte eingeschaltet ist.
+function chatOverlayRedeemWanted(){try{return chatOverlay.getConfig().redeemCards===true;}catch{return false;}}
 const chatOverlay = createChatOverlay({
   read:()=>readJson(FILES.chatOverlay,{}),
   write:value=>writeJson(FILES.chatOverlay,value),
@@ -621,6 +623,10 @@ twitchEvents.on("chat-delete","Chat-Overlay",payload=>{if(!moduleOn("chatOverlay
 const chatOverlayEvent=(kind,{event,metadata})=>{if(!moduleOn("chatOverlay"))return;const id=String(metadata?.message_id||`${kind}-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`).replace(/[^A-Za-z0-9_-]/g,"").slice(0,64);return chatOverlay.handleEvent(compactChatEventCard(kind,event,id));};
 twitchEvents.on("follow","Chat-Overlay-Follow",payload=>chatOverlayEvent("follow",payload));
 twitchEvents.on("raid","Chat-Overlay-Raid",payload=>chatOverlayEvent("raid",payload));
+// 9.27.2: Abos (Chat-Benachrichtigung), Bits (Cheer-Nachricht) und Kanalpunkte (Kanal-Konto, nur mit Recht channel:read:redemptions)
+twitchEvents.on("chat-notice","Chat-Overlay-Abo",payload=>chatOverlayEvent("notice",payload));
+twitchEvents.on("chat-bits","Chat-Overlay-Bits",payload=>chatOverlayEvent("bits",payload));
+twitchEvents.on("chat-redeem","Chat-Overlay-Kanalpunkte",payload=>chatOverlayEvent("redeem",payload));
 // 9.2.0: Laufende Vorgänge, die das Ausschalten eines Moduls sperren. Rückgabe = Meldung oder null.
 const MODULE_BUSY_CHECKS={
   giveaway:()=>{try{return readGiveawayState()?.current?.active?"Ein Gewinnspiel läuft noch. Bitte erst beenden, dann das Modul ausschalten.":null;}catch{return null;}},
