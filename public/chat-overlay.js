@@ -1,25 +1,3 @@
-  let last = null;                                           // zuletzt gezeigtes Emote-Bild (für Zero-Width-Emotes)
-  for (const p of Array.isArray(m.parts) ? m.parts : []) {
-    if (p.t === "emote" && cfg.showEmotes && EMOTE.test(String(p.id || ""))) {
-      const img = el("img", "emote"); img.alt = String(p.v || ""); img.referrerPolicy = "no-referrer";
-      img.src = `https://static-cdn.jtvnw.net/emoticons/v2/${p.id}/default/dark/2.0`;
-      img.addEventListener("error", () => img.replaceWith(document.createTextNode(String(p.v || ""))));
-      bubble.appendChild(img); last = img;
-    } else if (p.t === "ext" && cfg.showEmotes && EXT[p.p] && EXT_ID[p.p].test(String(p.id || ""))) {
-      const img = el("img", "emote"); img.alt = String(p.v || ""); img.referrerPolicy = "no-referrer";
-      img.src = EXT[p.p](p.id);
-      img.addEventListener("error", () => img.replaceWith(document.createTextNode(String(p.v || ""))));
-      if (p.zw === true && last && last.parentNode) {
-        let host = last.parentNode;
-        if (!host.classList.contains("stack")) { host = el("span", "stack"); last.replaceWith(host); host.appendChild(last); }
-        img.classList.add("zw"); host.appendChild(img);
-      } else { bubble.appendChild(img); last = img; }
-    } else if (p.t === "emote" || p.t === "ext" || p.t === "text") {
-      const text = String(p.v || "");
-      bubble.appendChild(document.createTextNode(text));
-      if (/\S/.test(text)) last = null;                       // Leerzeichen zwischen Emotes unterbrechen die Reihe nicht
-    }
-  }
 "use strict";
 // 9.27.0: Chat-Overlay. Alle Texte werden als Text eingesetzt (nie als HTML); Bilder nur von Twitchs Bildserver
 // (Emotes über die Emote-Kennung, Abzeichen nur mit geprüfter Adresse). Die Seite hat keine eigenen Daten:
@@ -118,14 +96,26 @@ function build(m) {
   }
   const bubble = el("div", "bubble");
   if (m.reply) bubble.appendChild(el("span", "rp", "↩ " + String(m.reply)));
+  let last = null;                                           // zuletzt gezeigtes Emote-Bild (für Zero-Width-Emotes)
   for (const p of Array.isArray(m.parts) ? m.parts : []) {
     if (p.t === "emote" && cfg.showEmotes && EMOTE.test(String(p.id || ""))) {
       const img = el("img", "emote"); img.alt = String(p.v || ""); img.referrerPolicy = "no-referrer";
       img.src = `https://static-cdn.jtvnw.net/emoticons/v2/${p.id}/default/dark/2.0`;
       img.addEventListener("error", () => img.replaceWith(document.createTextNode(String(p.v || ""))));
-      bubble.appendChild(img);
-    } else if (p.t === "emote" || p.t === "text") {
-      bubble.appendChild(document.createTextNode(String(p.v || "")));
+      bubble.appendChild(img); last = img;
+    } else if (p.t === "ext" && cfg.showEmotes && EXT[p.p] && EXT_ID[p.p].test(String(p.id || ""))) {
+      const img = el("img", "emote"); img.alt = String(p.v || ""); img.referrerPolicy = "no-referrer";
+      img.src = EXT[p.p](p.id);
+      img.addEventListener("error", () => img.replaceWith(document.createTextNode(String(p.v || ""))));
+      if (p.zw === true && last && last.parentNode) {
+        let host = last.parentNode;
+        if (!host.classList.contains("stack")) { host = el("span", "stack"); last.replaceWith(host); host.appendChild(last); }
+        img.classList.add("zw"); host.appendChild(img);
+      } else { bubble.appendChild(img); last = img; }
+    } else if (p.t === "emote" || p.t === "ext" || p.t === "text") {
+      const text = String(p.v || "");
+      bubble.appendChild(document.createTextNode(text));
+      if (/\S/.test(text)) last = null;                       // Leerzeichen zwischen Emotes unterbrechen die Reihe nicht
     }
   }
   msg.append(tab, bubble);

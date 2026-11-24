@@ -1,6 +1,16 @@
 {
   "versions": [
     {
+      "version": "9.27.5",
+      "date": "2026-11-24",
+      "title": "Chat-Overlay: Korrektur der Overlay-Seite aus 9.27.4",
+      "changes": [
+        "Fehlerbehebung: In 9.27.4 brach das Skript der Overlay-Seite beim Laden ab, dadurch erschien im Chat-Overlay gar nichts mehr (weder Vorschau noch Testnachrichten noch echter Chat). Die Seite zeigt wieder alles an; die Emotes von 7TV, BetterTTV und FrankerFaceZ erscheinen jetzt auch tatsächlich als Bild.",
+        "Neuer Test, der das Skript der Overlay-Seite mit einer DOM-Attrappe wirklich ausführt (Laden, Vorschau, Twitch- und Fremd-Emotes, ungültige Kennungen, Zero-Width), damit so ein Ausfall nicht mehr unbemerkt bleibt.",
+        "Nach dem Update in OBS bzw. Moblin die Browserquelle einmal neu laden (OBS: Eigenschaften → „Cache der aktuellen Seite aktualisieren“)."
+      ]
+    },
+    {
       "version": "9.27.4",
       "date": "2026-11-24",
       "title": "Chat-Overlay: Emotes von 7TV, BetterTTV und FrankerFaceZ",
