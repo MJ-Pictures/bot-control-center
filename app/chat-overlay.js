@@ -3,7 +3,7 @@
 // dieses Modul hält sie kurz zurück (einstellbare Verzögerung), damit später gelöschte Nachrichten nie im Stream
 // erscheinen, und schickt sie dann an alle geöffneten Overlay-Quellen. Daten fremder Nutzer werden nicht gespeichert.
 const { createSseLimiter, rejectTooMany } = require("../shared/sse-limits");
-const { sanitizeMessage, plainText, BADGE_URL, clean } = require("../shared/chat-overlay-core");
+const { sanitizeMessage, sanitizeEvent, plainText, BADGE_URL, clean } = require("../shared/chat-overlay-core");
 
 const THEMES = Object.freeze(["dark", "light", "angular"]);
 const BOT_MODES = Object.freeze(["none", "game", "all"]);
@@ -14,7 +14,7 @@ const DEFAULT_IGNORED = Object.freeze(["nightbot", "streamelements", "streamlabs
 const DEFAULT_CONFIG = Object.freeze({
   delaySeconds: 2, maxMessages: 8, displaySeconds: 60, theme: "dark", align: "left", fontScale: 100,
   accentColor: "#FAB70A", font: "system", hideCommands: true, botMessages: "none", ignoredUsers: DEFAULT_IGNORED,
-  showBadges: true, showEmotes: true, nameColorDot: false
+  showBadges: true, showEmotes: true, nameColorDot: false, followCards: true, raidCards: true
 });
 const MAX_AGE_MS = 30000;          // Nachrichten, die länger unterwegs waren, werden nicht mehr gezeigt
 const MAX_PENDING = 200;
@@ -55,6 +55,8 @@ function normalizeConfig(input, base = DEFAULT_CONFIG, strict = true) {
   apply("showBadges", v => bool(v, "Abzeichen"));
   apply("showEmotes", v => bool(v, "Emotes"));
   apply("nameColorDot", v => bool(v, "Namensfarbe"));
+  apply("followCards", v => bool(v, "Follow-Karten"));
+  apply("raidCards", v => bool(v, "Raid-Karten"));
   apply("accentColor", v => { if (!/^#[0-9a-fA-F]{6}$/.test(String(v))) throw new Error("Die Akzentfarbe muss wie #FAB70A aussehen."); return String(v).toUpperCase(); });
   apply("ignoredUsers", v => {
     const list = (Array.isArray(v) ? v : String(v ?? "").split(/[\s,;]+/)).map(x => String(x).trim().toLowerCase().replace(/^@/, "")).filter(Boolean);
@@ -116,6 +118,7 @@ function createChatOverlay({ read, write, badges = null, now = () => Date.now(),
   const getConfig = () => ({ ...config, ignoredUsers: config.ignoredUsers.slice() });
 
   function toPublic(m) {
+    if (m.kind === "event") return { id: m.id, kind: "event", event: m.event, name: m.name, viewers: m.viewers };
     const out = { id: m.id, uid: m.uid, name: m.name, color: m.color, parts: m.parts, reply: m.reply, kind: m.kind };
     out.badges = config.showBadges ? m.badges.map(b => ({ s: b.s, i: b.i, u: badges?.url?.(b.s, b.i) || null })) : [];
     return out;
@@ -155,6 +158,19 @@ function createChatOverlay({ read, write, badges = null, now = () => Date.now(),
     const m = sanitizeMessage({ id: `bot-${now().toString(36)}-${++botSeq}`, name: clean(name, 40).trim() || "Bot", parts: [{ t: "text", v: body }], kind: "bot", at: now() });
     if (!m) return false;
     deliver(m);                                                 // eigener Text: keine Prüfung und keine Verzögerung nötig
+    return true;
+  }
+
+  // Eingang: Ereigniskarte (Follow oder Raid) aus einem echten EventSub-Ereignis. Der Name stammt von Twitch, nicht aus
+  // dem Chat; es gibt daher nichts zu verzögern oder zu löschen.
+  function handleEvent(raw) {
+    const m = sanitizeEvent(raw);
+    if (!m) return false;
+    if (m.event === "follow" && !config.followCards) return false;
+    if (m.event === "raid" && !config.raidCards) return false;
+    if (m.at && now() - m.at > MAX_AGE_MS * 4) return false;
+    if (recent.some(r => r.message.id === m.id)) return false;
+    deliver(m);
     return true;
   }
 
@@ -206,8 +222,13 @@ function createChatOverlay({ read, write, badges = null, now = () => Date.now(),
       ["Mod_Beispiel", "#2EB87A", "Ton und Bild sind in Ordnung."]
     ];
     let n = 0;
+    const cards = [{ event: "follow", name: "Testnutzer" }, { event: "raid", name: "Beispielkanal", viewers: 12 }];
+    for (const c of cards) {
+      const m = sanitizeEvent({ id: `test-${now().toString(36)}-${++testSeq}`, ...c, at: now() });
+      if (m) { deliver(m); n++; }
+    }
     for (const [name, color, text] of samples) {
-      const m = sanitizeMessage({ id: `test-${now().toString(36)}-${++testSeq}`, name, color, parts: [{ t: "text", v: text }], badges: n === 2 ? [{ s: "moderator", i: "1" }] : [], kind: "chat", at: now() });
+      const m = sanitizeMessage({ id: `test-${now().toString(36)}-${++testSeq}`, name, color, parts: [{ t: "text", v: text }], badges: name === "Mod_Beispiel" ? [{ s: "moderator", i: "1" }] : [], kind: "chat", at: now() });
       if (m) { deliver(m); n++; }
     }
     return n;
@@ -231,7 +252,7 @@ function createChatOverlay({ read, write, badges = null, now = () => Date.now(),
     res.on("close", cleanup);
   }
 
-  return { configure, getConfig, handleChat, handleBotMessage, handleDelete, test, addSseClient, pendingCount: () => pending.size, clientCount: () => clients.size };
+  return { configure, getConfig, handleChat, handleBotMessage, handleEvent, handleDelete, test, addSseClient, pendingCount: () => pending.size, clientCount: () => clients.size };
 }
 
 module.exports = { createChatOverlay, createBadgeCache, normalizeConfig, DEFAULT_CONFIG, THEMES, BOT_MODES, MAX_AGE_MS };

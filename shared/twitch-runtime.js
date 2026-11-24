@@ -2003,6 +2003,9 @@ async function handleNotification(payload) {
       viewers:ev.viewers
     });
 
+    // 9.27.1: Die Weboberfläche zeigt den Raid (Chat-Overlay-Karte); ein Fehler dabei darf die Raid-Nachricht nicht verhindern.
+    try { await twitchEvents.emit("raid",{event:ev,metadata:payload.metadata||{}}); } catch (e) { console.warn("⚠️ Raid konnte nicht an die Weboberfläche gemeldet werden:", e?.message || e); }
+
     if (s.events?.raid?.enabled) {
       return sendChat(
         s.events.raid.bot,

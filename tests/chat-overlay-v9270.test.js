@@ -89,7 +89,7 @@ test("Neu geöffnete Quelle bekommt Konfiguration und Verlauf (nur Nicht-Abgelau
   s.overlay.addSseClient(res2, new EventEmitter(), "9.9.9.9"); assert.deepEqual(JSON.parse(got2[1].split("data: ")[1]), []);
 });
 test("Testnachrichten umgehen Filter und Verzögerung", () => {
-  const s = setup(); assert.equal(s.overlay.test(), 3); assert.equal(s.events("message").length, 3);
+  const s = setup(); assert.equal(s.overlay.test(), 5); assert.equal(s.events("message").length, 5);   // seit 9.27.1: zwei Ereigniskarten und drei Nachrichten
   assert.ok(s.events("message").every(m => m.id.startsWith("test-")));
 });
 test("Sicherheit: kein HTML, nur geprüfte Emote-Kennungen, Abzeichen nur mit Adresse des Bildservers", () => {
@@ -143,4 +143,47 @@ test("Overlay-Seite: nur Text, Bilder nur vom Twitch-Bildserver, eigene CSP", ()
 test("Oberfläche: Navigationspunkt, Bereich und Einstellungsseite vorhanden", () => {
   const app = fs.readFileSync("public/app.js", "utf8"), idx = fs.readFileSync("public/index.html", "utf8");
   assert.match(app, /tab:"chatOverlay",label:"Chat-Overlay"/); assert.match(app, /function renderChatOverlay|renderChatOverlay\s*=/); assert.ok(idx.includes('id="chatOverlay"'));
+});
+
+// ---- 9.27.1: Ereigniskarten ----
+test("Ereigniskarten: Follow und Raid erscheinen sofort, ohne Verzögerung, nur mit Name und Zuschauerzahl", () => {
+  const s = setup();   // Standard: Verzögerung 2 s gilt nur für Chat-Text
+  assert.equal(s.overlay.handleEvent({ id: "f1", event: "follow", name: "Anna", at: s.now.t }), true);
+  assert.equal(s.overlay.handleEvent({ id: "r1", event: "raid", name: "Kanal", viewers: 12, at: s.now.t }), true);
+  const ev = s.events("message"); assert.equal(ev.length, 2);
+  assert.deepEqual(ev[0], { id: "f1", kind: "event", event: "follow", name: "Anna", viewers: null });
+  assert.deepEqual(ev[1], { id: "r1", kind: "event", event: "raid", name: "Kanal", viewers: 12 });
+});
+test("Ereigniskarten: Schalter, Dopplungen, ungültige und ältere Ereignisse", () => {
+  const s = setup();
+  assert.equal(s.overlay.handleEvent({ id: "f1", event: "follow", name: "Anna", at: s.now.t }), true);
+  assert.equal(s.overlay.handleEvent({ id: "f1", event: "follow", name: "Anna", at: s.now.t }), false, "gleiche Kennung nur einmal");
+  assert.equal(s.overlay.handleEvent({ id: "x", event: "sub", name: "A" }), false);
+  assert.equal(s.overlay.handleEvent({ id: "x y", event: "follow", name: "A" }), false);
+  assert.equal(s.overlay.handleEvent({ id: "f2", event: "follow", name: "  ‮ " }), false);
+  assert.equal(s.overlay.handleEvent({ id: "f3", event: "follow", name: "Alt", at: s.now.t - MAX_AGE_MS * 4 - 1 }), false);
+  s.overlay.configure({ followCards: false });
+  assert.equal(s.overlay.handleEvent({ id: "f4", event: "follow", name: "B", at: s.now.t }), false);
+  assert.equal(s.overlay.handleEvent({ id: "r2", event: "raid", name: "C", viewers: 3, at: s.now.t }), true);
+  s.overlay.configure({ raidCards: false });
+  assert.equal(s.overlay.handleEvent({ id: "r3", event: "raid", name: "D", viewers: 3, at: s.now.t }), false);
+  assert.throws(() => s.overlay.configure({ raidCards: "ja" }));
+});
+test("Ereigniskarten: aus EventSub-Daten gebaut, Zuschauerzahl geprüft, Karten bleiben im Verlauf und lassen sich leeren", () => {
+  const c = core.compactEvent("raid", { from_broadcaster_user_name: "<i>Kanal</i>", viewers: "x" }, "r9", 5);
+  assert.equal(c.viewers, null); assert.equal(c.name, "<i>Kanal</i>", "Name bleibt Text, wird im Overlay nur per textContent gesetzt");
+  assert.equal(core.compactEvent("follow", { user_name: "Anna", user_login: "anna" }, "f9", 5).name, "Anna");
+  assert.equal(core.compactEvent("sub", {}, "z", 1), null);
+  const s = setup(); s.overlay.handleEvent({ id: "f1", event: "follow", name: "Anna", at: s.now.t });
+  const got = [], res = Object.assign(new EventEmitter(), { writableLength: 0, writeHead() {}, write: f => got.push(f), end() {} });
+  s.overlay.addSseClient(res, new EventEmitter(), "7.7.7.7"); assert.equal(JSON.parse(got[1].split("data: ")[1])[0].event, "follow");
+  s.overlay.handleDelete({ kind: "clear" }); assert.equal(s.events("clear").length, 1);
+});
+test("Ereigniskarten: Verdrahtung (Raid wird gemeldet, Web hört auf Follow und Raid) und Seite nutzt nur Text und lokale Symbole", () => {
+  const rt = fs.readFileSync("shared/twitch-runtime.js", "utf8"), web = fs.readFileSync("app/server.js", "utf8");
+  assert.match(rt, /twitchEvents\.emit\("raid"/); assert.ok(web.includes('twitchEvents.on("raid","Chat-Overlay-Raid"')); assert.ok(web.includes('twitchEvents.on("follow","Chat-Overlay-Follow"'));
+  const js = fs.readFileSync("public/chat-overlay.js", "utf8"), html = fs.readFileSync("public/chat-overlay.html", "utf8");
+  assert.match(js, /function buildCard/); assert.doesNotMatch(js, /innerHTML/);
+  for (const f of ["herz", "raid"]) { assert.ok(fs.existsSync(`public/chat-overlay-icons/${f}.png`), f); assert.ok(html.includes(`/chat-overlay-icons/${f}.png`), f); }
+  assert.match(fs.readFileSync("public/app.js", "utf8"), /coFollowCards[\s\S]*coRaidCards/);
 });

@@ -38,6 +38,14 @@ body[data-theme="angular"] .bubble{margin-left:.8em;background:linear-gradient(t
 body[data-theme="angular"] .msg{filter:drop-shadow(0 .12em .25em rgba(0,0,0,.4))}
 body[data-theme="angular"] .dot{box-shadow:0 0 0 .08em rgba(255,255,255,.7)}
 body[data-theme="dark"] .dot,body[data-theme="light"] .dot{box-shadow:0 0 0 .08em rgba(255,255,255,.65)}
+/* 9.27.1 Ereigniskarten: gleiche Formen wie Nachrichten, Symbol folgt der Reiterfarbe (Maske, Alphakanal der Bilddatei) */
+.ico{flex:none;width:1.15em;height:1.15em;background-color:currentColor;-webkit-mask:var(--ico) center/contain no-repeat;mask:var(--ico) center/contain no-repeat}
+.card.follow .ico{--ico:url(/chat-overlay-icons/herz.png)}
+.card.raid .ico{--ico:url(/chat-overlay-icons/raid.png)}
+.card .bubble{font-size:1.08em}
+.card .who{color:var(--accent)}
+body[data-theme="light"] .card .who,body[data-theme="angular"] .card .who{color:inherit;text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:.14em;text-underline-offset:.14em;text-decoration-skip-ink:none}
+.card .sub{font-size:.8em;opacity:.8;margin-left:.45em;font-weight:600}
 @keyframes in{from{opacity:0;transform:translateX(-1.6em)}to{opacity:1;transform:none}}
 @keyframes inRight{from{opacity:0;transform:translateX(1.6em)}to{opacity:1;transform:none}}
 @keyframes out{from{opacity:1}to{opacity:0;transform:translateY(-.4em)}}

@@ -33,7 +33,20 @@ function el(tag, className, text) {
   if (text !== undefined) e.textContent = text;
   return e;
 }
+function buildCard(m) {
+  const raid = m.event === "raid";
+  const msg = el("div", `msg card ${raid ? "raid" : "follow"}`);
+  const tab = el("div", "tab");
+  tab.append(el("span", "ico"), el("span", "nm", raid ? "Raid" : "Neuer Follower"));
+  const bubble = el("div", "bubble");
+  bubble.appendChild(el("span", "who", String(m.name || "")));
+  const n = Number(m.viewers);
+  if (raid && Number.isInteger(n) && n >= 0) bubble.appendChild(el("span", "sub", `mit ${n} ${n === 1 ? "Zuschauer" : "Zuschauern"}`));
+  msg.append(tab, bubble);
+  return msg;
+}
 function build(m) {
+  if (m.kind === "event") return buildCard(m);
   const msg = el("div", "msg" + (m.kind === "bot" ? " bot" : ""));
   const tab = el("div", "tab");
   if (cfg.nameColorDot && COLOR.test(m.color || "")) { const d = el("span", "dot"); d.style.background = m.color; tab.appendChild(d); }
@@ -114,6 +127,9 @@ function startDemo() {
   };
   next(); next();
   setInterval(next, 2400);
+  // Beispiel-Ereigniskarten, damit auch sie in der Vorschau zu sehen sind
+  setTimeout(() => add({ id: "demo-follow", kind: "event", event: "follow", name: "Nachtfuchs89" }), 1200);
+  setTimeout(() => add({ id: "demo-raid", kind: "event", event: "raid", name: "BeispielKanal", viewers: 24 }), 4200);
 }
 
 applyConfig({});

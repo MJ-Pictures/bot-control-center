@@ -8,6 +8,7 @@ const { createFollowathon } = require("./followathon");
 const { createSubathon } = require("./subathon");
 const { createFollowerAlert } = require("./follower-alert");
 const { createChatOverlay, createBadgeCache } = require("./chat-overlay");
+const { compactEvent: compactChatEventCard } = require("../shared/chat-overlay-core");
 // 9.11.0 · D1: Installationsprofil (Produktname, öffentliche Adresse, Ersteinrichtung, Spielbezeichnungen).
 const installationKit = require("/shared/installation-profile");
 const textPackKit=require("/shared/text-pack");
@@ -616,6 +617,10 @@ twitchEvents.on("follow","Follower-Alert",({event})=>{if(!moduleOn("followerAler
 twitchEvents.on("chat","Chat-Overlay",payload=>{if(!moduleOn("chatOverlay"))return;return chatOverlay.handleChat(payload);});
 twitchEvents.on("chat-sent","Chat-Overlay",payload=>{if(!moduleOn("chatOverlay"))return;return chatOverlay.handleBotMessage(payload);});
 twitchEvents.on("chat-delete","Chat-Overlay",payload=>{if(!moduleOn("chatOverlay"))return;return chatOverlay.handleDelete(payload);});
+// 9.27.1: Ereigniskarten im Chat-Overlay. Die Kennung stammt aus den Metadaten der Twitch-Nachricht (dedupliziert Wiederholungen).
+const chatOverlayEvent=(kind,{event,metadata})=>{if(!moduleOn("chatOverlay"))return;const id=String(metadata?.message_id||`${kind}-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`).replace(/[^A-Za-z0-9_-]/g,"").slice(0,64);return chatOverlay.handleEvent(compactChatEventCard(kind,event,id));};
+twitchEvents.on("follow","Chat-Overlay-Follow",payload=>chatOverlayEvent("follow",payload));
+twitchEvents.on("raid","Chat-Overlay-Raid",payload=>chatOverlayEvent("raid",payload));
 // 9.2.0: Laufende Vorgänge, die das Ausschalten eines Moduls sperren. Rückgabe = Meldung oder null.
 const MODULE_BUSY_CHECKS={
   giveaway:()=>{try{return readGiveawayState()?.current?.active?"Ein Gewinnspiel läuft noch. Bitte erst beenden, dann das Modul ausschalten.":null;}catch{return null;}},

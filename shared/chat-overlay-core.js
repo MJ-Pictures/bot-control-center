@@ -110,8 +110,32 @@ function compactDeleteEvent(type, ev) {
   return null;
 }
 
+// 9.27.1: Ereigniskarten (Follow, Raid). Es werden nur Name und Zahl übernommen, nie Freitext.
+const EVENT_KINDS = Object.freeze(["follow", "raid"]);
+function sanitizeEvent(raw) {
+  if (!raw || typeof raw !== "object" || !EVENT_KINDS.includes(raw.event)) return null;
+  const id = String(raw.id ?? "");
+  if (!MESSAGE_ID.test(id)) return null;
+  const name = clean(raw.name, MAX_NAME).trim();
+  if (!name) return null;
+  const viewers = Number(raw.viewers);
+  const at = Number(raw.at);
+  return {
+    id, kind: "event", event: raw.event, name,
+    viewers: raw.event === "raid" && Number.isInteger(viewers) && viewers >= 0 && viewers <= 10000000 ? viewers : null,
+    at: Number.isFinite(at) && at > 0 ? at : 0
+  };
+}
+// Web-Seite: macht aus dem EventSub-Ereignis (channel.follow bzw. channel.raid) die kleine Form für die Karte.
+function compactEvent(kind, ev, id, now = Date.now()) {
+  if (!ev || typeof ev !== "object") return null;
+  if (kind === "follow") return sanitizeEvent({ id, event: "follow", name: ev.user_name || ev.user_login, at: now });
+  if (kind === "raid") return sanitizeEvent({ id, event: "raid", name: ev.from_broadcaster_user_name || ev.from_broadcaster_user_login, viewers: ev.viewers, at: now });
+  return null;
+}
+
 function plainText(message) {
   return (message?.parts || []).map(p => p.v).join("");
 }
 
-module.exports = { MAX_TEXT, BADGE_URL, sanitizeMessage, compactChatEvent, compactDeleteEvent, plainText, clean };
+module.exports = { MAX_TEXT, BADGE_URL, EVENT_KINDS, sanitizeMessage, sanitizeEvent, compactEvent, compactChatEvent, compactDeleteEvent, plainText, clean };

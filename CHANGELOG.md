@@ -2,6 +2,14 @@
 
 Dieses Dokument wird aus `public/changelog.json` erzeugt, dem Protokoll, das auch die Oberfläche anzeigt. Die neueste Version steht oben.
 
+## 9.27.1 – 2026-11-24
+
+**Chat-Overlay: Karten für neue Follower und Raids**
+
+- Im Chat-Overlay erscheinen jetzt Ereigniskarten mitten im Chatfluss: „Neuer Follower“ mit Herz-Symbol und „Raid“ mit Zuschauerzahl. Die Karten nutzen den gewählten Look (dunkel, hell, kantig) und die eingestellte Akzentfarbe.
+- Die Karten stammen aus den echten Twitch-Ereignissen und erscheinen ohne Verzögerung. Beide lassen sich in den Einstellungen des Chat-Overlays einzeln abschalten (Standard: an). Die Vorschau und die Testnachrichten enthalten Beispielkarten.
+- Der Twitch-Bot meldet Raids jetzt zusätzlich an die Weboberfläche. Die Raid-Nachricht im Chat ist davon unabhängig und wird auch bei einem Fehler dabei wie bisher gesendet.
+
 ## 9.27.0 – 2026-11-24
 
 **Neues Modul: Chat-Overlay für OBS und Moblin**

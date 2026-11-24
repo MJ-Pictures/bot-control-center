@@ -6943,7 +6943,9 @@ async function renderChatOverlay(){
         <label>Schriftgröße in Prozent (70–160)<input id="coScale" type="number" min="70" max="160" step="5" value="${Number(c.fontScale)||100}" ${dis}></label>
         <label class="checkline"><input id="coBadges" type="checkbox" ${c.showBadges?"checked":""} ${dis}> Twitch-Abzeichen anzeigen</label>
         <label class="checkline"><input id="coEmotes" type="checkbox" ${c.showEmotes?"checked":""} ${dis}> Twitch-Emotes als Bilder anzeigen (sonst als Text)</label>
-        <label class="checkline"><input id="coDot" type="checkbox" ${c.nameColorDot?"checked":""} ${dis}> Namensfarbe als kleinen Punkt vor dem Namen zeigen</label></div>
+        <label class="checkline"><input id="coDot" type="checkbox" ${c.nameColorDot?"checked":""} ${dis}> Namensfarbe als kleinen Punkt vor dem Namen zeigen</label>
+        <label class="checkline"><input id="coFollowCards" type="checkbox" ${c.followCards!==false?"checked":""} ${dis}> Karte „Neuer Follower“ im Chat zeigen</label>
+        <label class="checkline"><input id="coRaidCards" type="checkbox" ${c.raidCards!==false?"checked":""} ${dis}> Karte „Raid“ im Chat zeigen (mit Zuschauerzahl)</label></div>
       <div class="card"><h3>Anzeige</h3>
         <label>Anzahl sichtbarer Nachrichten (3–15)<input id="coMax" type="number" min="3" max="15" step="1" value="${Number(c.maxMessages)||8}" ${dis}></label>
         <label>Anzeigedauer pro Nachricht in Sekunden (0 = bleibt, bis sie verdrängt wird)<input id="coDisplay" type="number" min="0" max="600" step="5" value="${Number.isInteger(c.displaySeconds)?c.displaySeconds:60}" ${dis}></label>
@@ -6957,7 +6959,7 @@ async function renderChatOverlay(){
         <div class="row wrap"><button id="chatOverlaySave" ${dis}>Einstellungen speichern</button></div></div>`;
     $("chatOverlaySave")?.addEventListener("click",async()=>{
       const body={theme:$("coTheme").value,align:$("coAlign").value,accentColor:$("coAccent").value,font:$("coFont").value,fontScale:Number($("coScale").value),
-        showBadges:$("coBadges").checked,showEmotes:$("coEmotes").checked,nameColorDot:$("coDot").checked,maxMessages:Number($("coMax").value),
+        showBadges:$("coBadges").checked,showEmotes:$("coEmotes").checked,nameColorDot:$("coDot").checked,followCards:$("coFollowCards").checked,raidCards:$("coRaidCards").checked,maxMessages:Number($("coMax").value),
         displaySeconds:Number($("coDisplay").value),delaySeconds:Number($("coDelay").value),hideCommands:$("coCommands").checked,botMessages:$("coBots").value,ignoredUsers:$("coIgnored").value};
       try{const result=await fetch("/api/chat-overlay",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}),j=await result.json();if(!result.ok)throw Error(j.error||"Speichern fehlgeschlagen");showToast("Chat-Overlay-Einstellungen gespeichert.","success");renderChatOverlay();}catch(e){showToast(e.message,"error");}
     });
