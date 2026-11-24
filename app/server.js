@@ -8,6 +8,7 @@ const { createFollowathon } = require("./followathon");
 const { createSubathon } = require("./subathon");
 const { createFollowerAlert } = require("./follower-alert");
 const { createChatOverlay, createBadgeCache } = require("./chat-overlay");
+const { createEmoteCache } = require("./chat-emotes");
 const { compactEvent: compactChatEventCard } = require("../shared/chat-overlay-core");
 // 9.11.0 · D1: Installationsprofil (Produktname, öffentliche Adresse, Ersteinrichtung, Spielbezeichnungen).
 const installationKit = require("/shared/installation-profile");
@@ -590,7 +591,23 @@ const chatBadgeCache = createBadgeCache({
 });
 // 9.27.2: Kanalpunkte-Karten brauchen ein zusätzliches Recht des Kanal-Kontos; nur anfordern, wenn die Karte eingeschaltet ist.
 function chatOverlayRedeemWanted(){try{return chatOverlay.getConfig().redeemCards===true;}catch{return false;}}
+// 9.27.4: Emotes von Drittanbietern (7TV, BTTV, FFZ). Nur feste Server, nur wenn der jeweilige Schalter an ist.
+const EMOTE_HOSTS=new Set(["7tv.io","api.betterttv.net","api.frankerfacez.com"]);
+const chatEmoteCache = createEmoteCache({
+  fetchJson: async url => {
+    const u=new URL(url);
+    if(u.protocol!=="https:"||!EMOTE_HOSTS.has(u.hostname))throw new Error("Server nicht erlaubt");
+    const r=await fetch(u,{redirect:"error",signal:AbortSignal.timeout(10000),headers:{accept:"application/json","user-agent":"BotControlCenter"}});
+    if(!r.ok)throw new Error(`HTTP ${r.status}`);
+    const text=await r.text();
+    if(text.length>8*1024*1024)throw new Error("Antwort zu groß");
+    return JSON.parse(text);
+  },
+  channelId: async () => await twitchRuntime.channelId(),
+  enabled: () => { try{const c=chatOverlay.getConfig();return {"7tv":c.emotes7tv===true,bttv:c.emotesBttv===true,ffz:c.emotesFfz===true};}catch{return {};} }
+});
 const chatOverlay = createChatOverlay({
+  emotes:chatEmoteCache,
   read:()=>readJson(FILES.chatOverlay,{}),
   write:value=>writeJson(FILES.chatOverlay,value),
   badges:chatBadgeCache,

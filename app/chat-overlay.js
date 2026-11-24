@@ -15,7 +15,7 @@ const DEFAULT_IGNORED = Object.freeze(["nightbot", "streamelements", "streamlabs
 const DEFAULT_CONFIG = Object.freeze({
   delaySeconds: 2, maxMessages: 8, displaySeconds: 60, theme: "dark", align: "left", fontScale: 100,
   accentColor: "#FAB70A", font: "system", hideCommands: true, botMessages: "none", ignoredUsers: DEFAULT_IGNORED,
-  showBadges: true, showEmotes: true, nameColorDot: false, followCards: true, raidCards: true, subCards: true, bitsCards: true, redeemCards: false,
+  showBadges: true, showEmotes: true, emotes7tv: false, emotesBttv: false, emotesFfz: false, nameColorDot: false, followCards: true, raidCards: true, subCards: true, bitsCards: true, redeemCards: false,
   // 9.27.3: Anpassung. Leere Farben und Schriftnamen bedeuten: Standard des gewählten Looks.
   anchor: "bottom", widthPercent: 0, marginX: 24, marginY: 24, fontFamily: "",
   tabColor: "", tabTextColor: "", bubbleColor: "", bubbleTextColor: "", textureOpacity: 60
@@ -60,6 +60,9 @@ function normalizeConfig(input, base = DEFAULT_CONFIG, strict = true) {
   apply("hideCommands", v => bool(v, "Befehle ausblenden"));
   apply("showBadges", v => bool(v, "Abzeichen"));
   apply("showEmotes", v => bool(v, "Emotes"));
+  apply("emotes7tv", v => bool(v, "7TV-Emotes"));
+  apply("emotesBttv", v => bool(v, "BTTV-Emotes"));
+  apply("emotesFfz", v => bool(v, "FFZ-Emotes"));
   apply("nameColorDot", v => bool(v, "Namensfarbe"));
   apply("followCards", v => bool(v, "Follow-Karten"));
   apply("raidCards", v => bool(v, "Raid-Karten"));
@@ -113,7 +116,7 @@ function createBadgeCache({ fetchJson, channelId, now = () => Date.now(), ttlMs 
   return { ensure, url: (set, id) => map.get(`${set}/${id}`) || null, size: () => map.size };
 }
 
-function createChatOverlay({ read, write, images = null, badges = null, now = () => Date.now(), setTimer = (fn, ms) => setTimeout(fn, ms), clearTimer = h => clearTimeout(h) } = {}) {
+function createChatOverlay({ read, write, images = null, badges = null, emotes = null, now = () => Date.now(), setTimer = (fn, ms) => setTimeout(fn, ms), clearTimer = h => clearTimeout(h) } = {}) {
   let config = normalizeConfig(read?.() || {}, DEFAULT_CONFIG, false);
   const clients = new Set();
   const sseLimiter = createSseLimiter({ max: 20, perIp: 4 });
@@ -150,7 +153,7 @@ function createChatOverlay({ read, write, images = null, badges = null, now = ()
       for (const k of ["amount", "tier", "target", "title"]) if (m[k] !== undefined) out[k] = m[k];
       return out;
     }
-    const out = { id: m.id, uid: m.uid, name: m.name, color: m.color, parts: m.parts, reply: m.reply, kind: m.kind };
+    const out = { id: m.id, uid: m.uid, name: m.name, color: m.color, parts: config.showEmotes && emotes ? emotes.expand(m.parts) : m.parts, reply: m.reply, kind: m.kind };
     out.badges = config.showBadges ? m.badges.map(b => ({ s: b.s, i: b.i, u: badges?.url?.(b.s, b.i) || null })) : [];
     return out;
   }
@@ -161,6 +164,7 @@ function createChatOverlay({ read, write, images = null, badges = null, now = ()
   }
   function schedule(m) {
     badges?.ensure?.();
+    emotes?.ensure?.();
     if (config.delaySeconds <= 0) { deliver(m); return true; }
     if (pending.has(m.id)) return false;
     if (pending.size >= MAX_PENDING) { const [oldest] = pending.keys(); const e = pending.get(oldest); clearTimer(e.timer); pending.delete(oldest); }
@@ -240,6 +244,7 @@ function createChatOverlay({ read, write, images = null, badges = null, now = ()
     const next = normalizeConfig(body, config, true);
     write?.(next);                    // erst speichern, dann live wirksam
     config = next;
+    emotes?.ensure?.();               // frisch eingeschaltete Dienste sofort laden
     broadcast("config", publicConfig());
     return getConfig();
   }

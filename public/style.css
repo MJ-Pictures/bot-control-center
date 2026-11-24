@@ -2466,3 +2466,9 @@ a.btn{display:inline-flex;align-items:center;justify-content:center}
 #setupLicenseStep .check{display:flex;gap:8px;align-items:center;margin-top:10px;font-weight:600}
 #setupLicenseStep details{margin:10px 0}
 #setupSubmit:disabled{opacity:.6;cursor:not-allowed}
+
+/* 9.27.4: Chat-Overlay – Einstellungen platzsparend in Spalten */
+.co-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 18px;align-items:end;margin-bottom:10px}
+.co-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 18px;margin-bottom:6px}
+.co-color{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.co-color input[type=color]{width:56px;flex:none}

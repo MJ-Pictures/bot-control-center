@@ -1,3 +1,25 @@
+  let last = null;                                           // zuletzt gezeigtes Emote-Bild (für Zero-Width-Emotes)
+  for (const p of Array.isArray(m.parts) ? m.parts : []) {
+    if (p.t === "emote" && cfg.showEmotes && EMOTE.test(String(p.id || ""))) {
+      const img = el("img", "emote"); img.alt = String(p.v || ""); img.referrerPolicy = "no-referrer";
+      img.src = `https://static-cdn.jtvnw.net/emoticons/v2/${p.id}/default/dark/2.0`;
+      img.addEventListener("error", () => img.replaceWith(document.createTextNode(String(p.v || ""))));
+      bubble.appendChild(img); last = img;
+    } else if (p.t === "ext" && cfg.showEmotes && EXT[p.p] && EXT_ID[p.p].test(String(p.id || ""))) {
+      const img = el("img", "emote"); img.alt = String(p.v || ""); img.referrerPolicy = "no-referrer";
+      img.src = EXT[p.p](p.id);
+      img.addEventListener("error", () => img.replaceWith(document.createTextNode(String(p.v || ""))));
+      if (p.zw === true && last && last.parentNode) {
+        let host = last.parentNode;
+        if (!host.classList.contains("stack")) { host = el("span", "stack"); last.replaceWith(host); host.appendChild(last); }
+        img.classList.add("zw"); host.appendChild(img);
+      } else { bubble.appendChild(img); last = img; }
+    } else if (p.t === "emote" || p.t === "ext" || p.t === "text") {
+      const text = String(p.v || "");
+      bubble.appendChild(document.createTextNode(text));
+      if (/\S/.test(text)) last = null;                       // Leerzeichen zwischen Emotes unterbrechen die Reihe nicht
+    }
+  }
 "use strict";
 // 9.27.0: Chat-Overlay. Alle Texte werden als Text eingesetzt (nie als HTML); Bilder nur von Twitchs Bildserver
 // (Emotes über die Emote-Kennung, Abzeichen nur mit geprüfter Adresse). Die Seite hat keine eigenen Daten:
@@ -6,6 +28,9 @@ const chat = document.getElementById("chat");
 const params = new URLSearchParams(location.search);
 const demo = params.get("demo") === "1";
 const EMOTE = /^[A-Za-z0-9_-]{1,80}$/;
+// 9.27.4: Emotes von Drittanbietern. Die Adressen entstehen nur aus diesen festen Vorlagen und einer geprüften Kennung.
+const EXT = { "7tv": id => `https://cdn.7tv.app/emote/${id}/2x.webp`, bttv: id => `https://cdn.betterttv.net/emote/${id}/2x.webp`, ffz: id => `https://cdn.frankerfacez.com/emote/${id}/2` };
+const EXT_ID = { "7tv": /^[A-Za-z0-9]{10,40}$/, bttv: /^[a-f0-9]{24}$/i, ffz: /^[0-9]{1,9}$/ };
 const BADGE = /^https:\/\/static-cdn\.jtvnw\.net\/badges\/v1\/[0-9a-f-]{36}\/[1-4]$/i;
 const COLOR = /^#[0-9a-f]{6}$/i;
 const FONT_NAME = /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}$/;

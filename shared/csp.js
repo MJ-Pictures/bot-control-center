@@ -8,6 +8,7 @@ const OVERLAY_PATHS=new Set(["/follower-alert/overlay","/followathon/overlay","/
 // 8.9.0: Stubenkontrolle-Overlay als gehostete Browserquelle (OBS, Mac, Moblin). Braucht zusätzlich Videos und den WebSocket.
 const STUBE_OVERLAY_PATH="/stubenkontrolle/overlay";
 // 9.27.0: Chat-Overlay zeigt Emotes und Abzeichen; Bilder nur vom Twitch-Bildserver, sonst wie die anderen Overlays.
+// 9.27.4: zusätzlich die Bildserver von 7TV, BetterTTV und FrankerFaceZ (nur Bilder, kein Skript).
 const CHAT_OVERLAY_PATH="/chat-overlay/overlay";
 const REPORT_PATH="/csp-report";
 
@@ -35,7 +36,7 @@ function stubeOverlayCsp(publicBaseUrl){
   const ws=wsOriginFor(publicBaseUrl);
   return "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'self'"+(ws?" "+ws:"")+"; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 }
-const CHAT_OVERLAY_ENFORCED="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' data: https://static-cdn.jtvnw.net; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+const CHAT_OVERLAY_ENFORCED="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' data: https://static-cdn.jtvnw.net https://cdn.7tv.app https://cdn.betterttv.net https://cdn.frankerfacez.com; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 function cspHeaders(pathname,{publicBaseUrl=""}={}){
   const kind=kindForPath(pathname);
   if(kind==="chat-overlay")return {"Content-Security-Policy":CHAT_OVERLAY_ENFORCED};

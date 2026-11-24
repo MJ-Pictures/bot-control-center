@@ -6936,31 +6936,46 @@ async function renderChatOverlay(){
         <p class="hint">In OBS (oder Moblin) als Browserquelle hinzufügen, empfohlen 1920 × 1080 mit transparentem Hintergrund; die Nachrichten stehen unten und wachsen nach oben. Die Quelle über den Bildbereich legen, in dem der Chat erscheinen soll, oder die Fläche in OBS zuschneiden.</p>
         <div class="row wrap"><button id="chatOverlayPreview">Vorschau mit Beispielnachrichten</button><button id="chatOverlayTest" ${dis}>Testnachrichten an geöffnete Quellen senden</button></div></div>
       <div class="card"><h3>Aussehen</h3>
-        <label>Look<select id="coTheme" ${dis}>${opt("dark","Dunkel (Glas, Akzentfarbe am Reiter)",c.theme)}${opt("light","Hell (weiße Blasen)",c.theme)}${opt("angular","Kantig (schräge Blasen mit Streifen)",c.theme)}</select></label>
-        <label>Ausrichtung<select id="coAlign" ${dis}>${opt("left","Links",c.align)}${opt("right","Rechts",c.align)}</select></label>
-        <label>Akzentfarbe<input id="coAccent" type="color" value="${esc(c.accentColor||"#FAB70A")}" ${dis}></label>
-        <label>Schrift<select id="coFont" ${dis}>${opt("system","Systemschrift (läuft überall)",c.font)}${opt("akzidenz","Akzidenz Grotesk Bold, falls auf dem Gerät installiert",c.font)}${opt("custom","Eigene Schrift (Name unten)",c.font)}</select></label>
-        <label>Name der eigenen Schrift (nur wirksam bei „Eigene Schrift“; die Schrift muss auf dem Gerät mit OBS oder Moblin installiert sein, sonst gilt die Systemschrift)<input id="coFontFamily" type="text" maxlength="40" placeholder="zum Beispiel Barlow Semi Condensed" value="${esc(c.fontFamily||"")}" ${dis}></label>
-        <label>Schriftgröße in Prozent (70–160)<input id="coScale" type="number" min="70" max="160" step="5" value="${Number(c.fontScale)||100}" ${dis}></label>
-        <label class="checkline"><input id="coBadges" type="checkbox" ${c.showBadges?"checked":""} ${dis}> Twitch-Abzeichen anzeigen</label>
-        <label class="checkline"><input id="coEmotes" type="checkbox" ${c.showEmotes?"checked":""} ${dis}> Twitch-Emotes als Bilder anzeigen (sonst als Text)</label>
-        <label class="checkline"><input id="coDot" type="checkbox" ${c.nameColorDot?"checked":""} ${dis}> Namensfarbe als kleinen Punkt vor dem Namen zeigen</label>
-        <label class="checkline"><input id="coFollowCards" type="checkbox" ${c.followCards!==false?"checked":""} ${dis}> Karte „Neuer Follower“ im Chat zeigen</label>
-        <label class="checkline"><input id="coRaidCards" type="checkbox" ${c.raidCards!==false?"checked":""} ${dis}> Karte „Raid“ im Chat zeigen (mit Zuschauerzahl)</label>
-        <label class="checkline"><input id="coSubCards" type="checkbox" ${c.subCards!==false?"checked":""} ${dis}> Karten für Abos zeigen (neu, verlängert, Geschenkabos)</label>
-        <label class="checkline"><input id="coBitsCards" type="checkbox" ${c.bitsCards!==false?"checked":""} ${dis}> Karte „Bits“ im Chat zeigen</label>
-        <label class="checkline"><input id="coRedeemCards" type="checkbox" ${c.redeemCards===true?"checked":""} ${dis}> Karte „Kanalpunkte“ zeigen, wenn jemand eine Belohnung einlöst (das Kanal-Konto braucht dafür ein zusätzliches Recht und muss unter Administration → Verbindungen einmal neu verbunden werden)</label></div>
+        <div class="co-grid">
+          <label>Look<select id="coTheme" ${dis}>${opt("dark","Dunkel (Glas, Akzentfarbe am Reiter)",c.theme)}${opt("light","Hell (weiße Blasen)",c.theme)}${opt("angular","Kantig (schräge Blasen mit Streifen)",c.theme)}</select></label>
+          <label>Ausrichtung<select id="coAlign" ${dis}>${opt("left","Links",c.align)}${opt("right","Rechts",c.align)}</select></label>
+          <label>Akzentfarbe<input id="coAccent" type="color" value="${esc(c.accentColor||"#FAB70A")}" ${dis}></label>
+          <label>Schrift<select id="coFont" ${dis}>${opt("system","Systemschrift (läuft überall)",c.font)}${opt("akzidenz","Akzidenz Grotesk Bold, falls auf dem Gerät installiert",c.font)}${opt("custom","Eigene Schrift (Name unten)",c.font)}</select></label>
+          <label>Name der eigenen Schrift<input id="coFontFamily" type="text" maxlength="40" placeholder="zum Beispiel Barlow Semi Condensed" value="${esc(c.fontFamily||"")}" ${dis}></label>
+          <label>Schriftgröße in Prozent (70–160)<input id="coScale" type="number" min="70" max="160" step="5" value="${Number(c.fontScale)||100}" ${dis}></label>
+        </div>
+        <div class="co-checks">
+          <label class="checkline"><input id="coBadges" type="checkbox" ${c.showBadges?"checked":""} ${dis}> Twitch-Abzeichen anzeigen</label>
+          <label class="checkline"><input id="coEmotes" type="checkbox" ${c.showEmotes?"checked":""} ${dis}> Twitch-Emotes als Bilder anzeigen (sonst als Text)</label>
+          <label class="checkline"><input id="coDot" type="checkbox" ${c.nameColorDot?"checked":""} ${dis}> Namensfarbe als kleinen Punkt vor dem Namen zeigen</label>
+          <label class="checkline"><input id="coFollowCards" type="checkbox" ${c.followCards!==false?"checked":""} ${dis}> Karte „Neuer Follower“ im Chat zeigen</label>
+          <label class="checkline"><input id="coRaidCards" type="checkbox" ${c.raidCards!==false?"checked":""} ${dis}> Karte „Raid“ im Chat zeigen (mit Zuschauerzahl)</label>
+          <label class="checkline"><input id="coSubCards" type="checkbox" ${c.subCards!==false?"checked":""} ${dis}> Karten für Abos zeigen (neu, verlängert, Geschenkabos)</label>
+          <label class="checkline"><input id="coBitsCards" type="checkbox" ${c.bitsCards!==false?"checked":""} ${dis}> Karte „Bits“ im Chat zeigen</label>
+          <label class="checkline"><input id="coRedeemCards" type="checkbox" ${c.redeemCards===true?"checked":""} ${dis}> Karte „Kanalpunkte“ zeigen (Kanalpunkte einlösen)</label>
+        </div>
+        <p class="hint">Kanalpunkte-Karte: Das Kanal-Konto braucht dafür ein zusätzliches Recht und muss unter Administration → Verbindungen einmal neu verbunden werden. Die Schrift unter „Eigene Schrift“ muss auf dem Gerät mit OBS oder Moblin installiert sein, sonst gilt die Systemschrift.</p>
+        <p class="hint">Emotes von Drittanbietern: Die Bilder laden die Overlay-Quelle (OBS, Moblin) direkt von den Servern des jeweiligen Dienstes, die Emote-Listen lädt das Control Center. Dabei wird die IP-Adresse des Geräts bzw. des Servers an den Dienst übertragen. Aus, solange du es nicht einschaltest.</p>
+        <div class="co-checks">
+          <label class="checkline"><input id="coEmotes7tv" type="checkbox" ${c.emotes7tv?"checked":""} ${dis}> 7TV-Emotes anzeigen</label>
+          <label class="checkline"><input id="coEmotesBttv" type="checkbox" ${c.emotesBttv?"checked":""} ${dis}> BetterTTV-Emotes anzeigen</label>
+          <label class="checkline"><input id="coEmotesFfz" type="checkbox" ${c.emotesFfz?"checked":""} ${dis}> FrankerFaceZ-Emotes anzeigen</label>
+        </div></div>
       <div class="card"><h3>Anpassung</h3>
-        <label>Position<select id="coAnchor" ${dis}>${opt("bottom","Unten (neue Nachrichten unten)",c.anchor)}${opt("top","Oben",c.anchor)}</select></label>
-        <label>Abstand zum Rand seitlich in Pixel (0–400)<input id="coMarginX" type="number" min="0" max="400" step="4" value="${Number.isInteger(c.marginX)?c.marginX:24}" ${dis}></label>
-        <label>Abstand zum Rand oben bzw. unten in Pixel (0–400)<input id="coMarginY" type="number" min="0" max="400" step="4" value="${Number.isInteger(c.marginY)?c.marginY:24}" ${dis}></label>
-        <label>Breite in Prozent der Quelle (0 = automatisch, sonst 20–100)<input id="coWidth" type="number" min="0" max="100" step="5" value="${Number(c.widthPercent)||0}" ${dis}></label>
+        <div class="co-grid">
+          <label>Position<select id="coAnchor" ${dis}>${opt("bottom","Unten (neue Nachrichten unten)",c.anchor)}${opt("top","Oben",c.anchor)}</select></label>
+          <label>Abstand zum Rand seitlich in Pixel (0–400)<input id="coMarginX" type="number" min="0" max="400" step="4" value="${Number.isInteger(c.marginX)?c.marginX:24}" ${dis}></label>
+          <label>Abstand zum Rand oben bzw. unten in Pixel (0–400)<input id="coMarginY" type="number" min="0" max="400" step="4" value="${Number.isInteger(c.marginY)?c.marginY:24}" ${dis}></label>
+          <label>Breite in Prozent der Quelle (0 = automatisch, sonst 20–100)<input id="coWidth" type="number" min="0" max="100" step="5" value="${Number(c.widthPercent)||0}" ${dis}></label>
+          <label>Stärke der Textur in Prozent (5–100, nur wenn eine Textur hochgeladen ist)<input id="coTexo" type="number" min="5" max="100" step="5" value="${Number.isInteger(c.textureOpacity)?c.textureOpacity:60}" ${dis}></label>
+        </div>
         <p class="hint">Farben: Ohne Haken gilt die Farbe des gewählten Looks. Die Akzentfarbe (oben) bleibt für Streifen und Hervorhebungen zuständig.</p>
-        <div class="row wrap"><label class="checkline"><input id="coTabOn" type="checkbox" ${c.tabColor?"checked":""} ${dis}> Eigene Farbe der Namensleiste</label><input id="coTab" type="color" value="${esc(c.tabColor||"#808080")}" ${dis}></div>
-        <div class="row wrap"><label class="checkline"><input id="coTabTextOn" type="checkbox" ${c.tabTextColor?"checked":""} ${dis}> Eigene Textfarbe der Namensleiste</label><input id="coTabText" type="color" value="${esc(c.tabTextColor||"#808080")}" ${dis}></div>
-        <div class="row wrap"><label class="checkline"><input id="coBubOn" type="checkbox" ${c.bubbleColor?"checked":""} ${dis}> Eigene Farbe der Nachricht</label><input id="coBub" type="color" value="${esc(c.bubbleColor||"#808080")}" ${dis}></div>
-        <div class="row wrap"><label class="checkline"><input id="coBubTextOn" type="checkbox" ${c.bubbleTextColor?"checked":""} ${dis}> Eigene Textfarbe der Nachricht</label><input id="coBubText" type="color" value="${esc(c.bubbleTextColor||"#808080")}" ${dis}></div>
-        <label>Stärke der Textur in Prozent (5–100, nur wenn eine Textur hochgeladen ist)<input id="coTexo" type="number" min="5" max="100" step="5" value="${Number.isInteger(c.textureOpacity)?c.textureOpacity:60}" ${dis}></label>
+        <div class="co-checks">
+          <div class="co-color"><label class="checkline"><input id="coTabOn" type="checkbox" ${c.tabColor?"checked":""} ${dis}> Eigene Farbe der Namensleiste</label><input id="coTab" type="color" value="${esc(c.tabColor||"#808080")}" ${dis}></div>
+          <div class="co-color"><label class="checkline"><input id="coTabTextOn" type="checkbox" ${c.tabTextColor?"checked":""} ${dis}> Eigene Textfarbe der Namensleiste</label><input id="coTabText" type="color" value="${esc(c.tabTextColor||"#808080")}" ${dis}></div>
+          <div class="co-color"><label class="checkline"><input id="coBubOn" type="checkbox" ${c.bubbleColor?"checked":""} ${dis}> Eigene Farbe der Nachricht</label><input id="coBub" type="color" value="${esc(c.bubbleColor||"#808080")}" ${dis}></div>
+          <div class="co-color"><label class="checkline"><input id="coBubTextOn" type="checkbox" ${c.bubbleTextColor?"checked":""} ${dis}> Eigene Textfarbe der Nachricht</label><input id="coBubText" type="color" value="${esc(c.bubbleTextColor||"#808080")}" ${dis}></div>
+        </div>
         <p class="hint">Eigene Symbole für die Karten (Follower, Raid, Abo, Geschenkabo, Bits, Kanalpunkte) und eine Textur lädst du unter <em>Administration → Profil &amp; Branding</em> bei den Bildern hoch. Ohne Upload erscheinen die eingebauten Symbole. Nach dem Hochladen übernehmen geöffnete Quellen die Bilder von selbst; bei Problemen die Quelle in OBS neu laden.</p></div>
       <div class="card"><h3>Anzeige</h3>
         <label>Anzahl sichtbarer Nachrichten (3–15)<input id="coMax" type="number" min="3" max="15" step="1" value="${Number(c.maxMessages)||8}" ${dis}></label>
@@ -6975,7 +6990,7 @@ async function renderChatOverlay(){
         <div class="row wrap"><button id="chatOverlaySave" ${dis}>Einstellungen speichern</button></div></div>`;
     $("chatOverlaySave")?.addEventListener("click",async()=>{
       const body={theme:$("coTheme").value,align:$("coAlign").value,accentColor:$("coAccent").value,font:$("coFont").value,fontScale:Number($("coScale").value),
-        showBadges:$("coBadges").checked,showEmotes:$("coEmotes").checked,nameColorDot:$("coDot").checked,anchor:$("coAnchor").value,marginX:Number($("coMarginX").value),marginY:Number($("coMarginY").value),widthPercent:Number($("coWidth").value),textureOpacity:Number($("coTexo").value),fontFamily:$("coFontFamily").value.trim(),
+        showBadges:$("coBadges").checked,showEmotes:$("coEmotes").checked,emotes7tv:$("coEmotes7tv").checked,emotesBttv:$("coEmotesBttv").checked,emotesFfz:$("coEmotesFfz").checked,nameColorDot:$("coDot").checked,anchor:$("coAnchor").value,marginX:Number($("coMarginX").value),marginY:Number($("coMarginY").value),widthPercent:Number($("coWidth").value),textureOpacity:Number($("coTexo").value),fontFamily:$("coFontFamily").value.trim(),
         tabColor:$("coTabOn").checked?$("coTab").value:"",tabTextColor:$("coTabTextOn").checked?$("coTabText").value:"",bubbleColor:$("coBubOn").checked?$("coBub").value:"",bubbleTextColor:$("coBubTextOn").checked?$("coBubText").value:"",
         followCards:$("coFollowCards").checked,raidCards:$("coRaidCards").checked,subCards:$("coSubCards").checked,bitsCards:$("coBitsCards").checked,redeemCards:$("coRedeemCards").checked,maxMessages:Number($("coMax").value),
         displaySeconds:Number($("coDisplay").value),delaySeconds:Number($("coDelay").value),hideCommands:$("coCommands").checked,botMessages:$("coBots").value,ignoredUsers:$("coIgnored").value};

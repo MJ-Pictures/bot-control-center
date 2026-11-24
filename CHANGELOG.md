@@ -2,6 +2,16 @@
 
 Dieses Dokument wird aus `public/changelog.json` erzeugt, dem Protokoll, das auch die Oberfläche anzeigt. Die neueste Version steht oben.
 
+## 9.27.4 – 2026-11-24
+
+**Chat-Overlay: Emotes von 7TV, BetterTTV und FrankerFaceZ**
+
+- Neu in den Einstellungen des Chat-Overlays: Emotes von 7TV, BetterTTV und FrankerFaceZ als Bilder im Chat. Jeder Dienst hat einen eigenen Schalter, alle sind standardmäßig aus.
+- Das Control Center lädt die Emote-Listen (global und die des eigenen Kanals) im Hintergrund von den festen Servern der Dienste und erneuert sie alle paar Stunden. Fällt ein Dienst aus, bleiben seine Emote-Namen einfach Text; der Chat wird nie aufgehalten.
+- Die Bilder lädt die Overlay-Quelle (OBS, Moblin) direkt von den Bildservern der eingeschalteten Dienste. Dabei sieht der Dienst die IP-Adresse des Geräts; deshalb sind die Schalter aus, bis du sie einschaltest. Die Inhaltssicherheitsrichtlinie der Overlay-Seite erlaubt dafür nur Bilder von cdn.7tv.app, cdn.betterttv.net und cdn.frankerfacez.com.
+- Zero-Width-Emotes von 7TV werden über das vorherige Emote gelegt. Pro Nachricht werden höchstens 30 Fremd-Emotes als Bild gezeigt; „Emotes als Bilder anzeigen“ aus bedeutet weiterhin Text.
+- Die Einstellungen des Chat-Overlays sind übersichtlicher: Auswahlfelder, Haken und Farben stehen in Spalten nebeneinander, sodass weniger gescrollt werden muss.
+
 ## 9.27.3 – 2026-11-24
 
 **Chat-Overlay: Anpassung von Farben, Position, Schrift und Bildern**
