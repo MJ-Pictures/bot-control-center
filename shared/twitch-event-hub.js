@@ -26,6 +26,9 @@ function createTwitchEventHub({log=console}={}){
     }
     return delivered;
   }
+  // 9.27.0: Flüchtige Ereignisse (Chat-Overlay): Hier ohne Unterschied zu emit; im getrennten Betrieb
+  // (createRemoteTwitchEvents) ohne Warteschlange und ohne Wiederholung.
+  function emitTransient(type,payload){return emit(type,payload);}
   function registerChatCommands(commands,label,fn){
     if(typeof fn!=="function")throw new Error("Verarbeitung fehlt.");
     for(const raw of commands||[]){
@@ -64,6 +67,6 @@ function createTwitchEventHub({log=console}={}){
     for(const entry of dynamicCommands)for(const c of dynamicNames(entry))if(!(c in commands))commands[c]=entry.label;
     return {events:Object.fromEntries([...listeners].map(([t,l])=>[t,l.map(x=>x.label)])),chatCommands:commands};
   }
-  return {on,emit,registerChatCommands,registerDynamicChatCommands,claimsChat,dispatchChatCommand,describe};
+  return {on,emit,emitTransient,registerChatCommands,registerDynamicChatCommands,claimsChat,dispatchChatCommand,describe};
 }
 module.exports={createTwitchEventHub};

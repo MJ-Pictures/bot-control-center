@@ -186,6 +186,12 @@ function createRemoteTwitchEvents({ baseUrl, secret, fetchImpl = (...a) => fetch
     catch (e) { try { log.error(`⚠️ Ereignis ${entry.type} noch nicht zugestellt (${e.message}); wird wiederholt.`); } catch {} enqueue(entry); return 0; }
   }
   function enqueue(entry) { if (queue.length >= maxQueue) queue.shift(); queue.push(entry); scheduleRetry(); }
+  // 9.27.0: Flüchtige Ereignisse (z. B. Chat-Overlay) werden genau einmal versucht. Sie kommen nie in die
+  // Warteschlange: Ein veraltetes Chat-Ereignis wäre wertlos und würde wichtige Ereignisse (Follow, Raid) verdrängen.
+  async function emitTransient(type, payload) {
+    const entry = { id: crypto.randomUUID(), type: String(type), payload: payload === undefined ? null : JSON.parse(JSON.stringify(payload)), createdAt: now() };
+    try { return await deliver(entry); } catch { return 0; }
+  }
 
   async function refreshCommands(force = false) {
     if (!force && now() - commandsLoadedAt < commandRefreshMs) return;
@@ -212,7 +218,7 @@ function createRemoteTwitchEvents({ baseUrl, secret, fetchImpl = (...a) => fetch
     } catch (e) { try { log.error(`⚠️ Chat-Befehl ${chatCommandOf(message)} nicht an die Weboberfläche zustellbar: ${e.message}`); } catch {} return false; }
   }
   const unsupported = name => () => { throw new Error(`${name} ist nur in der Weboberfläche verfügbar.`); };
-  return { emit, dispatchChatCommand, claimsChat, refreshCommands, pending: () => queue.length, on: unsupported("on"), registerChatCommands: unsupported("registerChatCommands") };
+  return { emit, emitTransient, dispatchChatCommand, claimsChat, refreshCommands, pending: () => queue.length, on: unsupported("on"), registerChatCommands: unsupported("registerChatCommands") };
 }
 
 // Weboberfläche: erkennt doppelt zugestellte Ereignisse an ihrer Kennung (kleiner Umlaufspeicher).

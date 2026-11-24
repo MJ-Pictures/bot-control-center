@@ -273,7 +273,25 @@ async function sendChat(bot, message, opts) {
   if (!message) return { ok: false, dropped: false, reason: "no-sender" };
   syncAccounts();
   bot = resolveBot(bot);
-  return chatSendQueue.enqueue(bot, message, opts);
+  const result = await chatSendQueue.enqueue(bot, message, opts);
+  // 9.27.0: Gesendete Bot-Nachrichten gehen (ohne Warten) an das Chat-Overlay; ob sie dort erscheinen, entscheidet dessen Einstellung.
+  if (result?.ok) {
+    try {
+      const a = accountMap[bot] || {};
+      emitChatOverlay("chat-sent", { source: String(opts?.source || "bot").slice(0, 40), name: a.displayName || a.login || "Bot", text: String(message).slice(0, 500) });
+    } catch {}
+  }
+  return result;
+}
+
+// 9.27.0: Chat-Overlay-Ereignisse laufen nacheinander (Reihenfolge bleibt erhalten), werden genau einmal versucht und
+// nie in die Wiederholungs-Warteschlange gelegt. Staut sich etwas, fallen die neuesten Ereignisse weg.
+let chatOverlayChain = Promise.resolve(), chatOverlayDepth = 0;
+function emitChatOverlay(type, payload) {
+  if (chatOverlayDepth >= 50) return;
+  chatOverlayDepth++;
+  const send = typeof twitchEvents.emitTransient === "function" ? twitchEvents.emitTransient.bind(twitchEvents) : twitchEvents.emit.bind(twitchEvents);
+  chatOverlayChain = chatOverlayChain.then(() => send(type, payload)).catch(() => {}).finally(() => { chatOverlayDepth--; });
 }
 
 
@@ -448,6 +466,8 @@ function isBroadcasterMessage(ev) {
 
 // Ab 8.9.4 in shared/link-detect.js: echte Domain-Endungen, keine Satzanfänge wie "toll.Und".
 const {extractUrls} = require("/shared/link-detect");
+// 9.27.0: Chat-Overlay – Nachrichten und Löschereignisse verdichten (gemeinsam mit der Weboberfläche genutzt).
+const {compactChatEvent, compactDeleteEvent} = require("/shared/chat-overlay-core");
 // 9.1.0: Lurk-Rückkehr. Zustand liegt in einer kleinen Datei (kein PostgreSQL nötig) und überlebt Neustarts.
 const {createLurkReturn, handleLurkChat, normalizeLurkSettings} = require("/shared/lurk-return");
 // 9.1.1: Modulschalter. Ist das Modul aus, läuft nichts (kein Erfassen, keine Pflege, kein Schreiben); die Daten bleiben erhalten.
@@ -1518,6 +1538,11 @@ async function handleChat(ev) {
     }
   }
 
+  // 9.27.0: Chat-Overlay. Erst hier, nach allen Filtern: Was gelöscht oder sanktioniert wurde, ist oben schon ausgestiegen.
+  if (isModuleEnabled(settings, "chatOverlay")) {
+    try { const compact = compactChatEvent(ev); if (compact) emitChatOverlay("chat", compact); } catch {}
+  }
+
   // 9.1.0: Lurk-Command registrieren bzw. Rückkehr melden. Läuft vor den Commands, damit der
   // bestehende !lurk-Command (Antworttext, Cooldown) unverändert weiterläuft. Gesendet wird ohne
   // Warten und mit niedrigem Vorrang; bei Stau fällt die Meldung zuerst weg.
@@ -1846,6 +1871,12 @@ async function subscribeAll() {
     { broadcaster_user_id: ids.channel, moderator_user_id: ids[mainBotKey()] },
     mainBotKey()
   );
+
+  // 9.27.0: Löschereignisse für das Chat-Overlay. Gleiche Berechtigung (user:read:chat) und Bedingung wie der Chat-Empfang.
+  // Schlägt eines fehl, läuft alles andere weiter; das Overlay blendet gelöschte Nachrichten dann nur nach Ablauf der Anzeigedauer aus.
+  for (const deleteType of ["channel.chat.message_delete", "channel.chat.clear_user_messages", "channel.chat.clear"]) {
+    await createEventSub(deleteType, "1", { broadcaster_user_id: ids.channel, user_id: ids[mainBotKey()] }, mainBotKey());
+  }
 }
 
 let followMessageCursor=0;
@@ -1875,6 +1906,16 @@ async function handleNotification(payload) {
   const type = payload.metadata?.subscription_type;
   const ev = payload.payload?.event;
   if (type === "channel.chat.message") return handleChat(ev);
+
+  // 9.27.0: Löschereignisse für das Chat-Overlay (gelöschte Nachricht, gelöschte Nachrichten eines Nutzers, Chat geleert).
+  if (type === "channel.chat.message_delete" || type === "channel.chat.clear_user_messages" || type === "channel.chat.clear") {
+    try {
+      const settings = readJson(FILES.settings, DEFAULT_SETTINGS);
+      normalizeModuleSettings(settings);
+      if (isModuleEnabled(settings, "chatOverlay")) { const d = compactDeleteEvent(type, ev); if (d) emitChatOverlay("chat-delete", d); }
+    } catch {}
+    return;
+  }
 
   if (type === "automod.message.hold") {
     const trusted = isTrustedClipBotMessage(ev);

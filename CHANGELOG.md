@@ -2,6 +2,16 @@
 
 Dieses Dokument wird aus `public/changelog.json` erzeugt, dem Protokoll, das auch die Oberfläche anzeigt. Die neueste Version steht oben.
 
+## 9.27.0 – 2026-11-24
+
+**Neues Modul: Chat-Overlay für OBS und Moblin**
+
+- Das Chat-Overlay zeigt den Twitch-Chat als eigene Browserquelle (Adresse unter Live-Zentrale → Chat-Overlay). Drei Looks stehen zur Wahl: dunkel (Standard), hell und kantig. Dazu Ausrichtung links oder rechts, Akzentfarbe, Schriftgröße, Emotes, Abzeichen und ein farbiger Punkt für die Nutzerfarbe. Es wird eine Systemschrift verwendet, die auf jedem Gerät vorhanden ist.
+- Das Overlay erhält nur Nachrichten, die alle Filter des Bots bereits bestanden haben. Zusätzlich lässt sich eine Verzögerung (0 bis 5 Sekunden, Standard 2) einstellen; wird die Nachricht in dieser Zeit gelöscht oder der Nutzer gesperrt, erscheint sie nie. Spätere Löschungen und „Chat leeren“ entfernen die Nachricht auch aus der Einblendung.
+- Befehle (beginnend mit !) und bekannte Fremd-Bots lassen sich ausblenden. Nachrichten des eigenen Bots sind einstellbar: keine (Standard), nur Spielmeldungen des Punktespiels oder alle.
+- Das Modul ist standardmäßig ausgeschaltet und wird unter Administration → Integrationen aktiviert. Zum Ausprobieren gibt es eine Vorschau mit Beispielnachrichten und Testnachrichten im echten Overlay.
+- Neu im Hintergrund: Chat-Nachrichten für das Overlay werden ohne Warteschlange übertragen, damit ein voller Chat keine Follow- oder Raid-Ereignisse verdrängt.
+
 ## 9.26.2 – 2026-11-23
 
 **Clip-Meldungen in Discord: Vorschaubild zuverlässig, Nachricht auffindbar**

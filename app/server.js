@@ -7,6 +7,7 @@ const { createStubenkontrolle, CHAT_COMMANDS: STUBENKONTROLLE_CHAT_COMMANDS } = 
 const { createFollowathon } = require("./followathon");
 const { createSubathon } = require("./subathon");
 const { createFollowerAlert } = require("./follower-alert");
+const { createChatOverlay, createBadgeCache } = require("./chat-overlay");
 // 9.11.0 · D1: Installationsprofil (Produktname, öffentliche Adresse, Ersteinrichtung, Spielbezeichnungen).
 const installationKit = require("/shared/installation-profile");
 const textPackKit=require("/shared/text-pack");
@@ -580,6 +581,16 @@ const followerAlert = createFollowerAlert({
   read:()=>readJson(FILES.followerAlert,{}),
   write:value=>writeJson(FILES.followerAlert,value)
 });
+// 9.27.0: Chat-Overlay. Abzeichen-Bilder werden mit dem App-Token von Twitch geholt und zwischengespeichert.
+const chatBadgeCache = createBadgeCache({
+  fetchJson: async url => { const r = await twitchAppFetch(url); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); },
+  channelId: async () => await twitchRuntime.channelId()
+});
+const chatOverlay = createChatOverlay({
+  read:()=>readJson(FILES.chatOverlay,{}),
+  write:value=>writeJson(FILES.chatOverlay,value),
+  badges:chatBadgeCache
+});
 const stubenkontrolle = createStubenkontrolle({
   dataDir:DATA_DIR,
   storage:pgStore,
@@ -601,6 +612,10 @@ twitchEvents.registerChatCommands(STUBENKONTROLLE_CHAT_COMMANDS,"Stubenkontrolle
 // 9.11.0: Die vier anpassbaren Spielbefehle (Runde, Kontostand, Rangliste, Hilfe) kommen aus dem Installationsprofil.
 twitchEvents.registerDynamicChatCommands(()=>Object.values(installationProfile().game.commands),"Stubenkontrolle",(ev,msg)=>moduleOn("stubenkontrolle")?stubenkontrolle.handleChat(ev,msg):false);
 twitchEvents.on("follow","Follower-Alert",({event})=>{if(!moduleOn("followerAlert"))return;return followerAlert.handleFollow(event);}); // 9.2.0: Modulschalter
+// 9.27.0: Chat-Overlay (Modulschalter). Nachrichten, gesendete Bot-Nachrichten und Löschereignisse kommen vom Twitch-Bot.
+twitchEvents.on("chat","Chat-Overlay",payload=>{if(!moduleOn("chatOverlay"))return;return chatOverlay.handleChat(payload);});
+twitchEvents.on("chat-sent","Chat-Overlay",payload=>{if(!moduleOn("chatOverlay"))return;return chatOverlay.handleBotMessage(payload);});
+twitchEvents.on("chat-delete","Chat-Overlay",payload=>{if(!moduleOn("chatOverlay"))return;return chatOverlay.handleDelete(payload);});
 // 9.2.0: Laufende Vorgänge, die das Ausschalten eines Moduls sperren. Rückgabe = Meldung oder null.
 const MODULE_BUSY_CHECKS={
   giveaway:()=>{try{return readGiveawayState()?.current?.active?"Ein Gewinnspiel läuft noch. Bitte erst beenden, dann das Modul ausschalten.":null;}catch{return null;}},
@@ -1004,7 +1019,9 @@ const PUBLIC_API_ROUTES=new Set([
   "/api/subathon/public/stream",
   "/api/followathon/public/stream",
   "/api/follower-alert/public/stream",
-  "/api/follower-alert/public/state"
+  "/api/follower-alert/public/state",
+  "/api/chat-overlay/public/stream",
+  "/api/chat-overlay/public/state"
 ]);
 
 const EXPLICIT_GUARD_API_PREFIXES=[
@@ -1280,6 +1297,7 @@ function apiCapabilityFor(pathname,method){
   if(p.startsWith("/api/subathon"))return p.includes("/public/")?null:"twitch.subathon.view";
   if(p==="/api/follower-alert")return write?"twitch.followathon.edit":"twitch.followathon.view";
   if(p==="/api/follower-alert/test")return"twitch.followathon.edit";
+  if(p.startsWith("/api/chat-overlay"))return p.includes("/public/")?null:(write?"twitch.followathon.edit":"twitch.followathon.view");
   if(p==="/api/activity")return null;
   if(p==="/api/usage-stats")return"twitch.statistics.view";
   if(p.startsWith("/api/watchtime"))return write?"twitch.watchtime.edit":"twitch.watchtime.view";
@@ -3552,7 +3570,7 @@ const server = http.createServer(async (req, res) => {
         team:"twitch.team.view",eventprofiles:"twitch.eventprofiles.view",stubenkontrolle:"twitch.stubenkontrolle.view",
         // 9.2.0: fehlende Reiter ergänzt (Stern war sichtbar, Speichern scheiterte); Listen = eines der Rechte genügt.
         autoreplies:"twitch.autoreplies.view",events:"twitch.community.view",chatters:"twitch.followage.view",lurk:"twitch.community.view",
-        followerAlert:"twitch.followathon.view",wordFilter:["twitch.moderation.view","twitch.blocked.view","discord.moderation.view"],
+        followerAlert:"twitch.followathon.view",chatOverlay:"twitch.followathon.view",wordFilter:["twitch.moderation.view","twitch.blocked.view","discord.moderation.view"],
         discordInvite:"discord.channels.view",discordLevelPlayers:"discord.moderation.view",discordUserHistory:"discord.moderation.view",
         discordEmergency:"@admin",discordLogsAdmin:"@admin",updates:"@owner",
         socialOverview:"@owner",socialInstagram:"@owner",socialTikTok:"@owner",socialPublications:"@owner",socialSettings:"@owner",
@@ -5224,6 +5242,29 @@ const server = http.createServer(async (req, res) => {
         const body=await readBody(req);followerAlert.test(body.userName||textsPublic().testName);
         return json(res,200,{ok:true});
       }catch(e){return json(res,400,{error:e.message});}
+    }
+
+    // 9.27.0: Chat-Overlay. Die Seite lädt Bilder nur vom Twitch-Bildserver (eigene Schutzregel in shared/csp.js).
+    if (u.pathname === "/chat-overlay/overlay" && req.method === "GET") {
+      return send(res,200,fs.readFileSync(path.join(PUBLIC_DIR,"chat-overlay.html")),"text/html; charset=utf-8",{"Cache-Control":"no-cache"});
+    }
+    if (u.pathname === "/api/chat-overlay/public/state" && req.method === "GET") return json(res,200,{enabled:true});
+    if (u.pathname === "/api/chat-overlay/public/stream" && req.method === "GET") return chatOverlay.addSseClient(res,req,clientIp(req));
+    if (u.pathname === "/api/chat-overlay" && req.method === "GET") {
+      const me=requireCapability(req,res,"twitch.followathon.view");if(!me)return;
+      return json(res,200,{ok:true,config:chatOverlay.getConfig(),overlayUrl:publicBaseUrl()?`${publicBaseUrl()}/chat-overlay/overlay`:"/chat-overlay/overlay"});
+    }
+    if (u.pathname === "/api/chat-overlay" && req.method === "PUT") {
+      const me=requireCapability(req,res,"twitch.followathon.edit");if(!me)return;
+      try {
+        const body=await readBody(req);const config=chatOverlay.configure(body);
+        audit(me.login||me.name||"admin","chat-overlay.config",{section:"followathon",theme:config.theme,botMessages:config.botMessages,delaySeconds:config.delaySeconds});
+        return json(res,200,{ok:true,config});
+      }catch(e){return json(res,400,{error:e.message});}
+    }
+    if (u.pathname === "/api/chat-overlay/test" && req.method === "POST") {
+      const me=requireCapability(req,res,"twitch.followathon.edit");if(!me)return;
+      return json(res,200,{ok:true,sent:chatOverlay.test()});
     }
 
     // 9.20.0: Subathon

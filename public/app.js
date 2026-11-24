@@ -473,7 +473,7 @@ const NAV_GROUPS={
   dashboard:{label:"Übersicht",icon:"⌂",items:[{tab:"dashboard",label:"Dashboard",capability:"twitch.dashboard.view"}]},
   automation:{label:"Automatisierung",icon:"⚙",items:[{tab:"commands",label:"Commands",capability:"twitch.commands.view"},{tab:"timers",label:"Timer-Nachrichten",capability:"twitch.timers.view"},{tab:"autoreplies",label:"Auto-Replies",capability:"twitch.autoreplies.view"}]},
   community:{label:"Community",icon:"♟",items:[{tab:"events",label:"Community",capability:"twitch.community.view"},{tab:"watchtime",label:"Watchtime",capability:"twitch.watchtime.view"},{tab:"followage",label:"Followage",capability:"twitch.followage.view"},{tab:"chatters",label:"Top-Chatters",capability:"twitch.followage.view"},{tab:"team",label:"Team",capability:"twitch.team.view"},{tab:"lurk",label:"Lurk-Rückkehr",capability:"twitch.community.view",module:"lurkReturn"}]},
-  live:{label:"Live-Zentrale",icon:"●",items:[{tab:"eventprofiles",label:"Event-Profile",capability:"twitch.eventprofiles.view",module:"eventProfiles"},{tab:"stubenkontrolle",label:"Stubenkontrolle",capability:"twitch.stubenkontrolle.view",module:"stubenkontrolle"},{tab:"followathon",label:"Followathon",capability:"twitch.followathon.view",module:"followathon"},{tab:"subathon",label:"Subathon",capability:"twitch.subathon.view",module:"subathon"},{tab:"followerAlert",label:"Follower-Alert",capability:"twitch.followathon.view",module:"followerAlert"},{tab:"clips",label:"Clips",capability:"twitch.clips.view",module:"clips"},{tab:"giveaway",label:"Gewinnspiel",capability:"twitch.giveaway.view",module:"giveaway"}]},
+  live:{label:"Live-Zentrale",icon:"●",items:[{tab:"eventprofiles",label:"Event-Profile",capability:"twitch.eventprofiles.view",module:"eventProfiles"},{tab:"stubenkontrolle",label:"Stubenkontrolle",capability:"twitch.stubenkontrolle.view",module:"stubenkontrolle"},{tab:"followathon",label:"Followathon",capability:"twitch.followathon.view",module:"followathon"},{tab:"subathon",label:"Subathon",capability:"twitch.subathon.view",module:"subathon"},{tab:"followerAlert",label:"Follower-Alert",capability:"twitch.followathon.view",module:"followerAlert"},{tab:"chatOverlay",label:"Chat-Overlay",capability:"twitch.followathon.view",module:"chatOverlay"},{tab:"clips",label:"Clips",capability:"twitch.clips.view",module:"clips"},{tab:"giveaway",label:"Gewinnspiel",capability:"twitch.giveaway.view",module:"giveaway"}]},
   moderation:{label:"Moderation",icon:"◆",items:[{tab:"moderation",label:"Chat-Filter",capability:"twitch.moderation.view",module:"twitchChatFilter"},{tab:"wordFilter",label:"Wortfilter",anyCapabilities:["twitch.moderation.view","twitch.blocked.view","discord.moderation.view"],module:"wordFilter"},{tab:"blocked",label:"Legacy-Wortliste",capability:"twitch.blocked.view",module:"wordFilter"}]},
   giveaway:{label:"Gewinnspiel",icon:"★",items:[{tab:"giveaway",label:"Gewinnspiel",capability:"twitch.giveaway.view",module:"giveaway"}]},
   analytics:{label:"Auswertung",icon:"▥",items:[{tab:"statistics",label:"Statistiken",capability:"twitch.statistics.view"},{tab:"activity",label:"Activity Board",capability:"twitch.activity.view"}]},
@@ -681,6 +681,7 @@ async function openNavTab(tab,{persist=true}={}){
   if(tab==="followathon")renderFollowathon();
   if(tab==="subathon")renderSubathon();
   if(tab==="followerAlert")renderFollowerAlert();
+  if(tab==="chatOverlay")renderChatOverlay();
   if(tab==="users")renderUsers();
   if(tab==="loginlogs")renderLoginLogs();
   if(tab==="connections")renderConnections();
@@ -6917,6 +6918,53 @@ async function renderFollowerAlert(){
       try{const result=await fetch("/api/follower-alert/test",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({userName:$("followerAlertTestName").value})}),j=await result.json();if(!result.ok)throw Error(j.error||"Test fehlgeschlagen");showToast("Test-Follow an alle geöffneten Overlay-Quellen gesendet.","success");}catch(e){showToast(e.message,"error");}
     });
     $("followerAlertPreview")?.addEventListener("click",()=>window.open(data.overlayUrl||"/follower-alert/overlay","_blank","noopener,noreferrer"));
+  }catch(e){root.innerHTML=`<div class="card error">${esc(e.message)}</div>`;}
+}
+
+// 9.27.0: Chat-Overlay (Live-Zentrale). Einstellungen, OBS-Adresse, Vorschau und Testnachrichten.
+async function renderChatOverlay(){
+  const root=$("chatOverlay");if(!root||!hasCapability("twitch.followathon.view"))return;
+  try{
+    const r=await fetch("/api/chat-overlay",{cache:"no-store"}),data=await r.json();
+    if(!r.ok)throw Error(data.error||"Chat-Overlay konnte nicht geladen werden.");
+    const c=data.config||{},canEdit=hasCapability("twitch.followathon.edit"),dis=canEdit?"":"disabled";
+    const opt=(value,label,current)=>`<option value="${value}" ${current===value?"selected":""}>${esc(label)}</option>`;
+    const url=data.overlayUrl||"/chat-overlay/overlay";
+    root.innerHTML=`<div class="title"><h2>Chat-Overlay</h2><p>Eigene, transparente Browserquelle für den Twitch-Chat. Nachrichten, die der Bot filtert oder löscht, erscheinen nie im Stream.</p></div>
+      <div class="card"><h3>OBS-Browserquelle</h3>
+        <p><code id="chatOverlayUrl">${esc(url)}</code></p>
+        <p class="hint">In OBS (oder Moblin) als Browserquelle hinzufügen, empfohlen 1920 × 1080 mit transparentem Hintergrund; die Nachrichten stehen unten und wachsen nach oben. Die Quelle über den Bildbereich legen, in dem der Chat erscheinen soll, oder die Fläche in OBS zuschneiden.</p>
+        <div class="row wrap"><button id="chatOverlayPreview">Vorschau mit Beispielnachrichten</button><button id="chatOverlayTest" ${dis}>Testnachrichten an geöffnete Quellen senden</button></div></div>
+      <div class="card"><h3>Aussehen</h3>
+        <label>Look<select id="coTheme" ${dis}>${opt("dark","Dunkel (Glas, Akzentfarbe am Reiter)",c.theme)}${opt("light","Hell (weiße Blasen)",c.theme)}${opt("angular","Kantig (schräge Blasen mit Streifen)",c.theme)}</select></label>
+        <label>Ausrichtung<select id="coAlign" ${dis}>${opt("left","Links",c.align)}${opt("right","Rechts",c.align)}</select></label>
+        <label>Akzentfarbe<input id="coAccent" type="color" value="${esc(c.accentColor||"#FAB70A")}" ${dis}></label>
+        <label>Schrift<select id="coFont" ${dis}>${opt("system","Systemschrift (läuft überall)",c.font)}${opt("akzidenz","Akzidenz Grotesk Bold, falls auf dem Gerät installiert",c.font)}</select></label>
+        <label>Schriftgröße in Prozent (70–160)<input id="coScale" type="number" min="70" max="160" step="5" value="${Number(c.fontScale)||100}" ${dis}></label>
+        <label class="checkline"><input id="coBadges" type="checkbox" ${c.showBadges?"checked":""} ${dis}> Twitch-Abzeichen anzeigen</label>
+        <label class="checkline"><input id="coEmotes" type="checkbox" ${c.showEmotes?"checked":""} ${dis}> Twitch-Emotes als Bilder anzeigen (sonst als Text)</label>
+        <label class="checkline"><input id="coDot" type="checkbox" ${c.nameColorDot?"checked":""} ${dis}> Namensfarbe als kleinen Punkt vor dem Namen zeigen</label></div>
+      <div class="card"><h3>Anzeige</h3>
+        <label>Anzahl sichtbarer Nachrichten (3–15)<input id="coMax" type="number" min="3" max="15" step="1" value="${Number(c.maxMessages)||8}" ${dis}></label>
+        <label>Anzeigedauer pro Nachricht in Sekunden (0 = bleibt, bis sie verdrängt wird)<input id="coDisplay" type="number" min="0" max="600" step="5" value="${Number.isInteger(c.displaySeconds)?c.displaySeconds:60}" ${dis}></label>
+        <label>Verzögerung in Sekunden (0–5)<input id="coDelay" type="number" min="0" max="5" step="1" value="${Number.isInteger(c.delaySeconds)?c.delaySeconds:2}" ${dis}></label>
+        <p class="hint">Der Bot löscht Verstöße erst nach dem Empfang der Nachricht. Mit Verzögerung erscheint eine Nachricht, die kurz danach gelöscht wird, gar nicht erst im Stream. Empfohlen: 2 Sekunden. Gelöschte Nachrichten verschwinden außerdem sofort aus dem Overlay.</p></div>
+      <div class="card"><h3>Ausgeblendet</h3>
+        <label class="checkline"><input id="coCommands" type="checkbox" ${c.hideCommands?"checked":""} ${dis}> Nachrichten, die mit „!“ beginnen (Befehle), ausblenden</label>
+        <label>Nachrichten der eigenen Bots<select id="coBots" ${dis}>${opt("none","Ausblenden",c.botMessages)}${opt("game","Nur Meldungen des Chat-Spiels zeigen",c.botMessages)}${opt("all","Alle Bot-Nachrichten zeigen",c.botMessages)}</select></label>
+        <label>Weitere Konten ausblenden (Twitch-Namen, durch Leerzeichen oder Komma getrennt)<textarea id="coIgnored" rows="3" ${dis}>${esc((c.ignoredUsers||[]).join(" "))}</textarea></label>
+        <p class="hint">Gedacht für Fremdbots wie Nightbot oder Fossabot. Die Meldungen des Chat-Spiels zeigt auch das Spiel-Overlay selbst; Beides gleichzeitig ergibt doppelte Anzeigen.</p>
+        <div class="row wrap"><button id="chatOverlaySave" ${dis}>Einstellungen speichern</button></div></div>`;
+    $("chatOverlaySave")?.addEventListener("click",async()=>{
+      const body={theme:$("coTheme").value,align:$("coAlign").value,accentColor:$("coAccent").value,font:$("coFont").value,fontScale:Number($("coScale").value),
+        showBadges:$("coBadges").checked,showEmotes:$("coEmotes").checked,nameColorDot:$("coDot").checked,maxMessages:Number($("coMax").value),
+        displaySeconds:Number($("coDisplay").value),delaySeconds:Number($("coDelay").value),hideCommands:$("coCommands").checked,botMessages:$("coBots").value,ignoredUsers:$("coIgnored").value};
+      try{const result=await fetch("/api/chat-overlay",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}),j=await result.json();if(!result.ok)throw Error(j.error||"Speichern fehlgeschlagen");showToast("Chat-Overlay-Einstellungen gespeichert.","success");renderChatOverlay();}catch(e){showToast(e.message,"error");}
+    });
+    $("chatOverlayTest")?.addEventListener("click",async()=>{
+      try{const result=await fetch("/api/chat-overlay/test",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}),j=await result.json();if(!result.ok)throw Error(j.error||"Test fehlgeschlagen");showToast("Testnachrichten an alle geöffneten Overlay-Quellen gesendet.","success");}catch(e){showToast(e.message,"error");}
+    });
+    $("chatOverlayPreview")?.addEventListener("click",()=>window.open(`${url}?demo=1`,"_blank","noopener,noreferrer"));
   }catch(e){root.innerHTML=`<div class="card error">${esc(e.message)}</div>`;}
 }
 

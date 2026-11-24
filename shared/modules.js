@@ -55,6 +55,22 @@ const MODULES = Object.freeze([
     offNote: "Die Einstellungen bleiben gespeichert. Solange das Modul aus ist, zeigt die OBS-Quelle eine leere Seite und neue Follower werden nicht eingeblendet. Event-Profile verändern den Follower-Alert dann nicht.",
     runsIn: "Weboberfläche"
   }),
+  // 9.27.0
+  Object.freeze({
+    id: "chatOverlay",
+    label: "Chat-Overlay",
+    description: "Eigene OBS-Einblendung des Twitch-Chats mit Abzeichen, Emotes und mehreren Looks; gefilterte und gelöschte Nachrichten erscheinen nie (Live-Zentrale → Chat-Overlay).",
+    platform: "twitch",
+    defaultEnabled: false,
+    requires: Object.freeze([]),
+    tabs: Object.freeze(["chatOverlay"]),
+    apiPrefixes: Object.freeze(["/api/chat-overlay"]),
+    overlayPages: Object.freeze(["/chat-overlay/overlay"]),
+    publicStates: Object.freeze(["/api/chat-overlay/public/state"]),
+    publicStreams: Object.freeze(["/api/chat-overlay/public/stream"]),
+    offNote: "Die Einstellungen bleiben gespeichert. Solange das Modul aus ist, zeigt die OBS-Quelle eine leere Seite und der Twitch-Bot meldet keine Chat-Nachrichten an das Overlay.",
+    runsIn: "Weboberfläche (Nachrichten kommen über den Twitch-Bot)"
+  }),
   // 9.3.0
   Object.freeze({
     id: "followathon",

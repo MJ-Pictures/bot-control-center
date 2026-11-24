@@ -1,0 +1,121 @@
+"use strict";
+// 9.27.0: Chat-Overlay. Alle Texte werden als Text eingesetzt (nie als HTML); Bilder nur von Twitchs Bildserver
+// (Emotes über die Emote-Kennung, Abzeichen nur mit geprüfter Adresse). Die Seite hat keine eigenen Daten:
+// Nachrichten kommen über den Ereignisstrom der Weboberfläche und sind dort schon gefiltert.
+const chat = document.getElementById("chat");
+const params = new URLSearchParams(location.search);
+const demo = params.get("demo") === "1";
+const EMOTE = /^[A-Za-z0-9_-]{1,80}$/;
+const BADGE = /^https:\/\/static-cdn\.jtvnw\.net\/badges\/v1\/[0-9a-f-]{36}\/[1-4]$/i;
+const COLOR = /^#[0-9a-f]{6}$/i;
+const THEMES = ["dark", "light", "angular"];
+let cfg = { theme: "dark", align: "left", fontScale: 100, maxMessages: 8, displaySeconds: 60, accentColor: "#FAB70A", font: "system", showBadges: true, showEmotes: true, nameColorDot: false };
+const items = new Map();   // Nachrichten-ID → { el, uid, timer }
+
+function applyConfig(c) {
+  cfg = { ...cfg, ...c };
+  let theme = cfg.theme, align = cfg.align;
+  if (demo) { // Nur in der Vorschau: Look und Ausrichtung per Adresse prüfbar (?theme=light&align=right)
+    if (THEMES.includes(params.get("theme"))) theme = params.get("theme");
+    if (["left", "right"].includes(params.get("align"))) align = params.get("align");
+  }
+  const b = document.body;
+  b.dataset.theme = THEMES.includes(theme) ? theme : "dark";
+  b.dataset.align = align === "right" ? "right" : "left";
+  b.dataset.font = cfg.font === "akzidenz" ? "akzidenz" : "system";
+  b.style.setProperty("--accent", COLOR.test(cfg.accentColor) ? cfg.accentColor : "#FAB70A");
+  b.style.setProperty("--scale", String(Math.min(1.6, Math.max(0.7, Number(cfg.fontScale) / 100 || 1))));
+  trim();
+}
+function el(tag, className, text) {
+  const e = document.createElement(tag);
+  if (className) e.className = className;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function build(m) {
+  const msg = el("div", "msg" + (m.kind === "bot" ? " bot" : ""));
+  const tab = el("div", "tab");
+  if (cfg.nameColorDot && COLOR.test(m.color || "")) { const d = el("span", "dot"); d.style.background = m.color; tab.appendChild(d); }
+  tab.appendChild(el("span", "nm", String(m.name || "")));
+  const badges = cfg.showBadges && Array.isArray(m.badges) ? m.badges.filter(x => x && BADGE.test(String(x.u || ""))) : [];
+  if (badges.length) {
+    const wrap = el("span", "badges");
+    for (const x of badges.slice(0, 6)) { const img = el("img", "badge"); img.alt = ""; img.src = x.u; img.referrerPolicy = "no-referrer"; wrap.appendChild(img); }
+    tab.appendChild(wrap);
+  }
+  const bubble = el("div", "bubble");
+  if (m.reply) bubble.appendChild(el("span", "rp", "↩ " + String(m.reply)));
+  for (const p of Array.isArray(m.parts) ? m.parts : []) {
+    if (p.t === "emote" && cfg.showEmotes && EMOTE.test(String(p.id || ""))) {
+      const img = el("img", "emote"); img.alt = String(p.v || ""); img.referrerPolicy = "no-referrer";
+      img.src = `https://static-cdn.jtvnw.net/emoticons/v2/${p.id}/default/dark/2.0`;
+      img.addEventListener("error", () => img.replaceWith(document.createTextNode(String(p.v || ""))));
+      bubble.appendChild(img);
+    } else if (p.t === "emote" || p.t === "text") {
+      bubble.appendChild(document.createTextNode(String(p.v || "")));
+    }
+  }
+  msg.append(tab, bubble);
+  return msg;
+}
+function drop(id, animate = true) {
+  const it = items.get(id);
+  if (!it) return;
+  items.delete(id);
+  clearTimeout(it.timer);
+  if (!animate) { it.el.remove(); return; }
+  it.el.classList.add("out");
+  setTimeout(() => it.el.remove(), 380);
+}
+function trim() {
+  const max = Math.max(3, Math.min(15, Number(cfg.maxMessages) || 8));
+  while (items.size > max) drop(items.keys().next().value, false);
+}
+function add(m, ageMs = 0) {
+  if (!m || typeof m.id !== "string" || items.has(m.id)) return;
+  const e = build(m);
+  chat.appendChild(e);
+  const it = { el: e, uid: m.uid || null, timer: null };
+  items.set(m.id, it);
+  const life = Number(cfg.displaySeconds) > 0 ? Number(cfg.displaySeconds) * 1000 - (Number(ageMs) || 0) : 0;
+  if (Number(cfg.displaySeconds) > 0) it.timer = setTimeout(() => drop(m.id), Math.max(500, life));
+  trim();
+}
+function removeBy(d) {
+  if (d.id) drop(String(d.id));
+  else if (d.uid) for (const [id, it] of [...items]) if (it.uid === String(d.uid)) drop(id);
+}
+function clearAll() { for (const id of [...items.keys()]) drop(id); }
+
+function connect() {
+  const stream = new EventSource("/api/chat-overlay/public/stream");
+  const parse = fn => ev => { try { fn(JSON.parse(ev.data)); } catch { /* ungültige Daten ignorieren */ } };
+  stream.addEventListener("config", parse(applyConfig));
+  stream.addEventListener("history", parse(list => { if (Array.isArray(list)) for (const m of list) add(m, m.ageMs); }));
+  stream.addEventListener("message", parse(m => { if (!demo || !m.id.startsWith("test-")) add(m); }));
+  stream.addEventListener("remove", parse(removeBy));
+  stream.addEventListener("clear", parse(clearAll));
+}
+
+// Vorschau: ?demo=1 erzeugt Beispielnachrichten im Browser (kein Chat nötig).
+function startDemo() {
+  const samples = [
+    ["Nachtfuchs89", "Moin zusammen!", "moderator"], ["KaffeeHeld", "Ton ist da, läuft super.", ""],
+    ["Wolke7", "Grüße aus Köln! Heute ist richtig was los im Chat und der Stream sieht klasse aus.", ""],
+    ["LinaLiest", "Schöner Streamstart!", "subscriber"], ["NordlichtTim", "Bin neu hier, hallo!", ""],
+    ["Kekskrümel", "Das ist eine bewusst lange Nachricht, damit man im Vorschau-Modus sieht, wie der Zeilenumbruch in diesem Look aussieht.", ""]
+  ];
+  let n = 0;
+  const next = () => {
+    const [name, text, badge] = samples[n % samples.length];
+    add({ id: `demo-${n}`, uid: String(1000 + n), name, color: ["#3C8DFF", "#E24C4C", "#2EB87A", "#B06BFF"][n % 4], kind: "chat", badges: [], parts: [{ t: "text", v: text }], reply: n % 5 === 4 ? "KaffeeHeld" : null });
+    n++;
+  };
+  next(); next();
+  setInterval(next, 2400);
+}
+
+applyConfig({});
+connect();
+if (demo) startDemo();

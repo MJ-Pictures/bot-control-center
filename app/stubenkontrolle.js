@@ -259,7 +259,7 @@ function createStubenkontrolle({dataDir,storage=null,storageKey="stubenkontrolle
     return render(template,safeVars);
   }
   // priority: "high" (Kontrolle, Ergebnis, Eröffnung), "normal" (Standard), "low" (Beitritts-Meldungen).
-  function chat(s,text,priority){ if(text) return sendChat(s.config.bot||"",text,{priority:priority||"normal"}); }
+  function chat(s,text,priority){ if(text) return sendChat(s.config.bot||"",text,{priority:priority||"normal",source:"stubenkontrolle"}); }
   function participantById(r,id){ return r?.participants?.find(p=>String(p.userId)===String(id)); }
   function roundPublic(r){
     if(!r) return null;

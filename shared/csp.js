@@ -7,11 +7,14 @@
 const OVERLAY_PATHS=new Set(["/follower-alert/overlay","/followathon/overlay","/subathon/overlay"]);
 // 8.9.0: Stubenkontrolle-Overlay als gehostete Browserquelle (OBS, Mac, Moblin). Braucht zusätzlich Videos und den WebSocket.
 const STUBE_OVERLAY_PATH="/stubenkontrolle/overlay";
+// 9.27.0: Chat-Overlay zeigt Emotes und Abzeichen; Bilder nur vom Twitch-Bildserver, sonst wie die anderen Overlays.
+const CHAT_OVERLAY_PATH="/chat-overlay/overlay";
 const REPORT_PATH="/csp-report";
 
 function kindForPath(pathname){
   const p=String(pathname||"");
   if(p===STUBE_OVERLAY_PATH)return "stube-overlay";
+  if(p===CHAT_OVERLAY_PATH)return "chat-overlay";
   return OVERLAY_PATHS.has(p)?"overlay":"app";
 }
 const FORM_ACTION="form-action 'self' https://id.twitch.tv https://discord.com";
@@ -32,8 +35,10 @@ function stubeOverlayCsp(publicBaseUrl){
   const ws=wsOriginFor(publicBaseUrl);
   return "default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'self'"+(ws?" "+ws:"")+"; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 }
+const CHAT_OVERLAY_ENFORCED="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' data: https://static-cdn.jtvnw.net; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 function cspHeaders(pathname,{publicBaseUrl=""}={}){
   const kind=kindForPath(pathname);
+  if(kind==="chat-overlay")return {"Content-Security-Policy":CHAT_OVERLAY_ENFORCED};
   if(kind==="stube-overlay")return {"Content-Security-Policy":stubeOverlayCsp(publicBaseUrl)};
   if(kind==="overlay")return {"Content-Security-Policy":OVERLAY_ENFORCED};
   return {"Content-Security-Policy":APP_ENFORCED};
@@ -90,4 +95,4 @@ function createCspReportCollector({maxKeys=60,maxPerWindow=60,windowMs=60000,log
   }
   return {allow,record,summary};
 }
-module.exports={REPORT_PATH,STUBE_OVERLAY_PATH,kindForPath,cspHeaders,wsOriginFor,stubeOverlayCsp,parseReports,signature,createCspReportCollector,APP_ENFORCED,OVERLAY_ENFORCED};
+module.exports={REPORT_PATH,STUBE_OVERLAY_PATH,CHAT_OVERLAY_PATH,CHAT_OVERLAY_ENFORCED,kindForPath,cspHeaders,wsOriginFor,stubeOverlayCsp,parseReports,signature,createCspReportCollector,APP_ENFORCED,OVERLAY_ENFORCED};
