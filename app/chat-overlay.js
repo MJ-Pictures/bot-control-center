@@ -8,6 +8,7 @@ const { sanitizeMessage, sanitizeEvent, plainText, BADGE_URL, clean } = require(
 const THEMES = Object.freeze(["dark", "light", "angular"]);
 const TEXT_SHADOWS = Object.freeze(["off", "soft", "strong"]);
 const GAME_MODES = Object.freeze(["show", "hide"]);
+const DODGE_MODES = Object.freeze(["none", "dim", "hide", "up"]);
 const BOT_MODES = Object.freeze(["none", "game", "all"]);
 const FONTS = Object.freeze(["system", "akzidenz", "custom"]);
 const ANCHORS = Object.freeze(["bottom", "top"]);
@@ -22,7 +23,9 @@ const DEFAULT_CONFIG = Object.freeze({
   anchor: "bottom", widthPercent: 0, marginX: 24, marginY: 24, fontFamily: "",
   tabColor: "", tabTextColor: "", bubbleColor: "", bubbleTextColor: "", textureOpacity: 60,
   // 9.28.3: Deckkraft der Nachrichten (Namensreiter bleiben deckend), Textschatten, Spielmeldungen des Chat-Spiels im Chat
-  bubbleOpacity: 100, textShadow: "off", gameMessages: "show"
+  bubbleOpacity: 100, textShadow: "off", gameMessages: "show",
+  // 9.28.4: Ausweichen während einer Spielrunde (jede Phase). none = nichts, dim = abdunkeln, hide = ausblenden, up = verschieben
+  gameDodge: "none", gameDodgeDim: 30, gameDodgeShift: 360
 });
 // Welcher Schalter der Konfiguration gehört zu welcher Karte
 const EVENT_SWITCH = Object.freeze({ follow: "followCards", raid: "raidCards", sub: "subCards", resub: "subCards", gift: "subCards", gifts: "subCards", bits: "bitsCards", redeem: "redeemCards" });
@@ -80,6 +83,9 @@ function normalizeConfig(input, base = DEFAULT_CONFIG, strict = true) {
   apply("bubbleOpacity", v => int(v, 10, 100, "Die Deckkraft der Nachrichten"));
   apply("textShadow", v => oneOf(v, TEXT_SHADOWS, "Der Textschatten"));
   apply("gameMessages", v => oneOf(v, GAME_MODES, "Spielmeldungen im Chat"));
+  apply("gameDodge", v => oneOf(v, DODGE_MODES, "Das Ausweichen bei Spielrunden"));
+  apply("gameDodgeDim", v => int(v, 0, 90, "Die Restdeckkraft beim Abdunkeln"));
+  apply("gameDodgeShift", v => int(v, 0, 900, "Die Verschiebung"));
   apply("textureOpacity", v => int(v, 5, 100, "Die Stärke der Textur"));
   apply("fontFamily", v => { const t = String(v ?? "").trim(); if (t && !/^[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}$/.test(t)) throw new Error("Der Schriftname darf nur Buchstaben, Ziffern, Leerzeichen, Punkt, Strich und Unterstrich enthalten (höchstens 40 Zeichen)."); return t; });
   for (const [key, label] of [["tabColor", "Farbe der Namensleiste"], ["tabTextColor", "Textfarbe der Namensleiste"], ["bubbleColor", "Farbe der Nachricht"], ["bubbleTextColor", "Textfarbe der Nachricht"]])
@@ -143,6 +149,7 @@ function createChatOverlay({ read, write, images = null, badges = null, emotes =
     accentColor: config.accentColor, font: config.font, showBadges: config.showBadges, showEmotes: config.showEmotes, nameColorDot: config.nameColorDot,
     anchor: config.anchor, widthPercent: config.widthPercent, marginX: config.marginX, marginY: config.marginY, fontFamily: config.fontFamily,
     tabColor: config.tabColor, tabTextColor: config.tabTextColor, bubbleColor: config.bubbleColor, bubbleTextColor: config.bubbleTextColor, textureOpacity: config.textureOpacity, bubbleOpacity: config.bubbleOpacity, textShadow: config.textShadow,
+    gameDodge: config.gameDodge, gameDodgeDim: config.gameDodgeDim, gameDodgeShift: config.gameDodgeShift,
     images: safeImages()
   });
   // Eigene Bilder der Installation (Symbole, Textur): nur Adressen der Form /branding/image/<Platz>?v=<Kennung> kommen ins Overlay.
@@ -282,6 +289,15 @@ function createChatOverlay({ read, write, images = null, badges = null, emotes =
     return n;
   }
 
+  // 9.28.4: Phase des Chat-Spiels (idle, registration, control, result) für das Ausweichen im Overlay.
+  let gamePhase = "idle";
+  const PHASES = ["idle", "registration", "control", "result"];
+  function setGamePhase(phase) {
+    const p = PHASES.includes(phase) ? phase : "idle";
+    if (p === gamePhase) return false;
+    gamePhase = p; broadcast("game", { phase: p }); return true;
+  }
+
   function addSseClient(res, req, ip) {
     const release = sseLimiter.tryAcquire(ip);
     if (!release) return rejectTooMany(res);
@@ -291,6 +307,7 @@ function createChatOverlay({ read, write, images = null, badges = null, emotes =
     const t = now();
     const items = recent.filter(r => t - r.at < limit).slice(-config.maxMessages).map(r => ({ ...toPublic(r.message), ageMs: t - r.at }));
     res.write(`event: history\ndata: ${JSON.stringify(items)}\n\n`);
+    res.write(`event: game\ndata: ${JSON.stringify({ phase: gamePhase })}\n\n`);
     clients.add(res);
     const timer = setInterval(() => { try { res.write(": ping\n\n"); } catch { cleanup(); } }, 25000);
     timer.unref?.();
@@ -302,7 +319,7 @@ function createChatOverlay({ read, write, images = null, badges = null, emotes =
 
   // Eigene Bilder haben sich geändert: Konfiguration erneut an alle geöffneten Quellen senden.
   const refresh = () => { if (clients.size) broadcast("config", publicConfig()); };
-  return { refresh, configure, getConfig, handleChat, handleBotMessage, handleEvent, handleDelete, test, addSseClient, pendingCount: () => pending.size, clientCount: () => clients.size };
+  return { setGamePhase, refresh, configure, getConfig, handleChat, handleBotMessage, handleEvent, handleDelete, test, addSseClient, pendingCount: () => pending.size, clientCount: () => clients.size };
 }
 
 module.exports = { createChatOverlay, createBadgeCache, normalizeConfig, DEFAULT_CONFIG, THEMES, BOT_MODES, MAX_AGE_MS };

@@ -617,6 +617,7 @@ const chatOverlay = createChatOverlay({
   images:()=>{const b=brandingImages();return Object.fromEntries(imageKit.CHAT_OVERLAY_SLOTS.filter(k=>b[k]?.mode==="upload").map(k=>[k,b[k].url]));}
 });
 const stubenkontrolle = createStubenkontrolle({
+  onPhase:phase=>{try{chatOverlay.setGamePhase(phase);}catch{}}, // 9.28.4: Chat-Overlay weicht dem Spiel aus
   dataDir:DATA_DIR,
   storage:pgStore,
   storageKey:"stubenkontrolle",

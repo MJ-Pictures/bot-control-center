@@ -2,6 +2,14 @@
 
 Dieses Dokument wird aus `public/changelog.json` erzeugt, dem Protokoll, das auch die Oberfläche anzeigt. Die neueste Version steht oben.
 
+## 9.28.4 – 2026-11-25
+
+**Chat-Overlay weicht dem Punktespiel aus (optional)**
+
+- Neu: „Chat bei laufender Spielrunde“ – Nichts tun (Standard, wie bisher), Abdunkeln, Ausblenden oder Nach oben schieben. Gilt in jeder Phase der Runde (Anmeldung, Kontrolle, Ergebnis) und nur, solange das Punktespiel eine Runde zeigt; danach kehrt der Chat sanft zurück.
+- Einstellbar: verbleibende Deckkraft beim Abdunkeln (0 bis 90 %) und Strecke beim Verschieben (0 bis 900 Pixel). Bei Chat-Position „Oben“ wird nach unten geschoben.
+- Das Chat-Overlay erhält die Spielphase über seine bestehende Verbindung zum Control Center; das Punktespiel-Overlay muss dafür nicht in derselben Szene laufen.
+
 ## 9.28.3 – 2026-11-25
 
 **Chat-Overlay: Deckkraft, Textschatten, Spielmeldungen aus dem Chat**

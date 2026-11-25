@@ -165,7 +165,7 @@ function normalizeStateWith(s,phraseDefaults,titleDefaults){
 // 9.11.0: Feste Befehle (für jedes Spiel passend). Die vier übrigen (Runde, Kontostand, Rangliste, Hilfe)
 // kommen aus dem Installationsprofil und sind anpassbar; siehe chatCommands().
 const CHAT_COMMANDS=Object.freeze([...FIXED_GAME_COMMANDS]);
-function createStubenkontrolle({dataDir,storage=null,storageKey="stubenkontrolle",sendChat,resolveUser,audit,isActive=()=>true,controlOwnerTwitchIds=()=>[],naming=()=>NEUTRAL_GAME,publicBaseUrl=()=>"",textPack=()=>textPackKit.NEUTRAL}){
+function createStubenkontrolle({dataDir,storage=null,storageKey="stubenkontrolle",sendChat,resolveUser,audit,isActive=()=>true,controlOwnerTwitchIds=()=>[],naming=()=>NEUTRAL_GAME,publicBaseUrl=()=>"",textPack=()=>textPackKit.NEUTRAL,onPhase=null}){
   const gameLines=()=>{try{return textPack().gameLines||textPackKit.NEUTRAL.gameLines;}catch{return textPackKit.NEUTRAL.gameLines;}};
   const freshState=()=>freshStateWith(phraseDefaults,titleDefaults);
   const normalizeState=s=>normalizeStateWith(s,phraseDefaults,titleDefaults);
@@ -314,7 +314,11 @@ function createStubenkontrolle({dataDir,storage=null,storageKey="stubenkontrolle
     try { client.socket.write(wsFrame(JSON.stringify(obj))); return true; }
     catch { clients.delete(client); try{client.socket.destroy();}catch{} return false; }
   }
-  function broadcast(){ const state=overlayState(); for(const c of [...clients]) sendWs(c,state); }
+  // 9.28.4: Phase des Spiels an andere Module melden (Chat-Overlay weicht aus). Nur bei Wechsel; Ende der Ergebnisanzeige per Abfrage.
+  let lastPhase=null;
+  function notifyPhase(phase){ if(!onPhase||phase===lastPhase) return; lastPhase=phase; try{ onPhase(phase); }catch{} }
+  function broadcast(){ const state=overlayState(); notifyPhase(isActive()?state.phase:"idle"); for(const c of [...clients]) sendWs(c,state); }
+  if(onPhase) setInterval(()=>{ try{ notifyPhase(isActive()?overlayState().phase:"idle"); }catch{} },2000).unref?.();
   function overlayStatus(){ return {connectedClients:clients.size,lastConnectAt:lastOverlayConnectAt,endpoint:"/ws/stubenkontrolle",testActive:!!overlayTestState}; }
 
   function scheduleRound(){

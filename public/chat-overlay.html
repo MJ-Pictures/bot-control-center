@@ -54,6 +54,13 @@ body[data-theme="dark"] .dot,body[data-theme="light"] .dot{box-shadow:0 0 0 .08e
 .card .who{color:var(--accent)}
 body[data-theme="light"] .card .who,body[data-theme="angular"] .card .who{color:inherit;text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:.14em;text-underline-offset:.14em;text-decoration-skip-ink:none}
 .card .sub{font-size:.8em;opacity:.8;margin-left:.45em;font-weight:600}
+/* 9.28.4: Ausweichen während einer Spielrunde (dim | hide | up), sanfter Übergang */
+#chat{transition:opacity .45s ease,transform .45s ease}
+body[data-dodge="dim"] #chat{opacity:var(--dodge-dim,.3)}
+body[data-dodge="hide"] #chat{opacity:0}
+body[data-dodge="up"] #chat{transform:translateY(calc(-1*var(--dodge-shift,360px)))}
+body[data-dodge="up"][data-anchor="top"] #chat{transform:translateY(var(--dodge-shift,360px))}
+@media (prefers-reduced-motion:reduce){#chat{transition-duration:1ms}}
 /* 9.28.3: Textschatten (dunkler Look: dunkler Schatten, helle Blasen: heller Schein) */
 body[data-tshadow="soft"] .bubble{text-shadow:0 0 .22em rgba(0,0,0,.85),0 .05em .12em rgba(0,0,0,.8)}
 body[data-tshadow="strong"] .bubble{text-shadow:0 0 .18em #000,0 0 .3em #000,0 .06em .1em #000}

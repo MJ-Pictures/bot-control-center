@@ -18,6 +18,17 @@ let images = {};   // eigene Bilder der Installation (Symbole, Textur), nur gepr
 let cfg = { theme: "dark", align: "left", fontScale: 100, maxMessages: 8, displaySeconds: 60, accentColor: "#FAB70A", font: "system", showBadges: true, showEmotes: true, nameColorDot: false };
 const items = new Map();   // Nachrichten-ID → { el, uid, timer }
 
+// 9.28.4: Ausweichen während einer Spielrunde (Phase kommt vom Server, Einstellung vom Betreiber)
+let gamePhase = "idle";
+function applyDodge() {
+  const mode = ["dim", "hide", "up"].includes(cfg.gameDodge) ? cfg.gameDodge : "none";
+  const active = mode !== "none" && gamePhase !== "idle";
+  const num = (v, d, lo, hi) => Number.isFinite(Number(v)) ? Math.max(lo, Math.min(hi, Number(v))) : d;
+  const b = document.body;
+  b.dataset.dodge = active ? mode : "none";
+  b.style.setProperty("--dodge-dim", String(num(cfg.gameDodgeDim, 30, 0, 90) / 100));
+  b.style.setProperty("--dodge-shift", `${num(cfg.gameDodgeShift, 360, 0, 900)}px`);
+}
 function applyConfig(c) {
   cfg = { ...cfg, ...c };
   let theme = cfg.theme, align = cfg.align;
@@ -47,6 +58,7 @@ function applyConfig(c) {
     if (COLOR.test(String(cfg.bubbleColor || ""))) { const h = cfg.bubbleColor; b.style.setProperty("--bub", `rgba(${parseInt(h.slice(1, 3), 16)},${parseInt(h.slice(3, 5), 16)},${parseInt(h.slice(5, 7), 16)},${bo / 100})`); } }
   b.style.setProperty("--accent", COLOR.test(cfg.accentColor) ? cfg.accentColor : "#FAB70A");
   b.style.setProperty("--scale", String(Math.min(1.6, Math.max(0.7, Number(cfg.fontScale) / 100 || 1))));
+  applyDodge();
   trim();
 }
 function el(tag, className, text) {
@@ -157,6 +169,7 @@ function connect() {
   const stream = new EventSource("/api/chat-overlay/public/stream");
   const parse = fn => ev => { try { fn(JSON.parse(ev.data)); } catch { /* ungültige Daten ignorieren */ } };
   stream.addEventListener("config", parse(applyConfig));
+  stream.addEventListener("game", parse(g => { gamePhase = ["registration", "control", "result"].includes(g?.phase) ? g.phase : "idle"; applyDodge(); }));
   stream.addEventListener("history", parse(list => { if (Array.isArray(list)) for (const m of list) add(m, m.ageMs); }));
   stream.addEventListener("message", parse(m => { if (!demo || !m.id.startsWith("test-")) add(m); }));
   stream.addEventListener("remove", parse(removeBy));
