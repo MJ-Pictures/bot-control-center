@@ -2,6 +2,15 @@
 
 Dieses Dokument wird aus `public/changelog.json` erzeugt, dem Protokoll, das auch die Oberfläche anzeigt. Die neueste Version steht oben.
 
+## 9.28.3 – 2026-11-25
+
+**Chat-Overlay: Deckkraft, Textschatten, Spielmeldungen aus dem Chat**
+
+- Neu: Deckkraft der Nachrichten (10 bis 100 %, Standard 100). Nur die Blase wird durchsichtig, Text, Namensleiste und Akzentstreifen bleiben deckend.
+- Neu: Textschatten „Aus“ (Standard), „Leicht“ oder „Stark“ für bessere Lesbarkeit vor hellen Spielszenen (dunkle Schatten im dunklen Look, heller Schein bei hellen Blasen).
+- Neu: „Meldungen des Chat-Spiels“ im Chat zeigen (Standard, wie bisher) oder nur im Spiel-Overlay zeigen. Damit entfallen doppelte Anzeigen während einer Runde.
+- Die Breite war bereits einstellbar (Prozent der Quelle, 20 bis 100); ohne Änderung der Einstellungen sieht das Overlay aus wie in 9.28.2.
+
 ## 9.28.2 – 2026-11-25
 
 **Punktespiel-Overlay: neue Punkte-Übersicht, Kasten an/aus, Deckkraft**

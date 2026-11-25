@@ -7065,6 +7065,8 @@ async function renderChatOverlay(){
           <label>Abstand zum Rand seitlich in Pixel (0–400)<input id="coMarginX" type="number" min="0" max="400" step="4" value="${Number.isInteger(c.marginX)?c.marginX:24}" ${dis}></label>
           <label>Abstand zum Rand oben bzw. unten in Pixel (0–400)<input id="coMarginY" type="number" min="0" max="400" step="4" value="${Number.isInteger(c.marginY)?c.marginY:24}" ${dis}></label>
           <label>Breite in Prozent der Quelle (0 = automatisch, sonst 20–100)<input id="coWidth" type="number" min="0" max="100" step="5" value="${Number(c.widthPercent)||0}" ${dis}></label>
+          <label>Deckkraft der Nachrichten in Prozent (10–100, Namensleisten bleiben deckend)<input id="coBubOpacity" type="number" min="10" max="100" step="5" value="${Number.isInteger(c.bubbleOpacity)?c.bubbleOpacity:100}" ${dis}></label>
+          <label>Textschatten<select id="coTextShadow" ${dis}>${opt("off","Aus",c.textShadow)}${opt("soft","Leicht",c.textShadow)}${opt("strong","Stark (für helle Spielszenen)",c.textShadow)}</select></label>
           <label>Stärke der Textur in Prozent (5–100, nur wenn eine Textur hochgeladen ist)<input id="coTexo" type="number" min="5" max="100" step="5" value="${Number.isInteger(c.textureOpacity)?c.textureOpacity:60}" ${dis}></label>
         </div>
         <p class="hint">Farben: Ohne Haken gilt die Farbe des gewählten Looks. Die Akzentfarbe (oben) bleibt für Streifen und Hervorhebungen zuständig.</p>
@@ -7083,15 +7085,16 @@ async function renderChatOverlay(){
       <div class="card"><h3>Ausgeblendet</h3>
         <label class="checkline"><input id="coCommands" type="checkbox" ${c.hideCommands?"checked":""} ${dis}> Nachrichten, die mit „!“ beginnen (Befehle), ausblenden</label>
         <label>Nachrichten der eigenen Bots<select id="coBots" ${dis}>${opt("none","Ausblenden",c.botMessages)}${opt("game","Nur Meldungen des Chat-Spiels zeigen",c.botMessages)}${opt("all","Alle Bot-Nachrichten zeigen",c.botMessages)}</select></label>
+        <label>Meldungen des Chat-Spiels (Stubenkontrolle)<select id="coGameMsgs" ${dis}>${opt("show","Im Chat zeigen (wie bisher)",c.gameMessages)}${opt("hide","Nicht im Chat zeigen, nur im Spiel-Overlay",c.gameMessages)}</select></label>
         <label>Weitere Konten ausblenden (Twitch-Namen, durch Leerzeichen oder Komma getrennt)<textarea id="coIgnored" rows="3" ${dis}>${esc((c.ignoredUsers||[]).join(" "))}</textarea></label>
-        <p class="hint">Gedacht für Fremdbots wie Nightbot oder Fossabot. Die Meldungen des Chat-Spiels zeigt auch das Spiel-Overlay selbst; Beides gleichzeitig ergibt doppelte Anzeigen.</p>
+        <p class="hint">Gedacht für Fremdbots wie Nightbot oder Fossabot. Die Meldungen des Chat-Spiels zeigt auch das Spiel-Overlay selbst; Beides gleichzeitig ergibt doppelte Anzeigen. Mit „Nicht im Chat zeigen“ erscheinen sie nur im Spiel-Overlay; die Auswahl „Nachrichten der eigenen Bots“ gilt dann für alle übrigen Bot-Nachrichten.</p>
         <div class="row wrap"><button id="chatOverlaySave" ${dis}>Einstellungen speichern</button></div></div>`;
     $("chatOverlaySave")?.addEventListener("click",async()=>{
       const body={theme:$("coTheme").value,align:$("coAlign").value,accentColor:$("coAccent").value,font:$("coFont").value,fontScale:Number($("coScale").value),
         showBadges:$("coBadges").checked,showEmotes:$("coEmotes").checked,emotes7tv:$("coEmotes7tv").checked,emotesBttv:$("coEmotesBttv").checked,emotesFfz:$("coEmotesFfz").checked,nameColorDot:$("coDot").checked,anchor:$("coAnchor").value,marginX:Number($("coMarginX").value),marginY:Number($("coMarginY").value),widthPercent:Number($("coWidth").value),textureOpacity:Number($("coTexo").value),fontFamily:$("coFontFamily").value.trim(),
         tabColor:$("coTabOn").checked?$("coTab").value:"",tabTextColor:$("coTabTextOn").checked?$("coTabText").value:"",bubbleColor:$("coBubOn").checked?$("coBub").value:"",bubbleTextColor:$("coBubTextOn").checked?$("coBubText").value:"",
         followCards:$("coFollowCards").checked,raidCards:$("coRaidCards").checked,subCards:$("coSubCards").checked,bitsCards:$("coBitsCards").checked,redeemCards:$("coRedeemCards").checked,maxMessages:Number($("coMax").value),
-        displaySeconds:Number($("coDisplay").value),delaySeconds:Number($("coDelay").value),hideCommands:$("coCommands").checked,botMessages:$("coBots").value,ignoredUsers:$("coIgnored").value};
+        displaySeconds:Number($("coDisplay").value),delaySeconds:Number($("coDelay").value),hideCommands:$("coCommands").checked,botMessages:$("coBots").value,bubbleOpacity:Number($("coBubOpacity").value),textShadow:$("coTextShadow").value,gameMessages:$("coGameMsgs").value,ignoredUsers:$("coIgnored").value};
       try{const result=await fetch("/api/chat-overlay",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}),j=await result.json();if(!result.ok)throw Error(j.error||"Speichern fehlgeschlagen");showToast("Chat-Overlay-Einstellungen gespeichert.","success");renderChatOverlay();}catch(e){showToast(e.message,"error");}
     });
     $("chatOverlayTest")?.addEventListener("click",async()=>{

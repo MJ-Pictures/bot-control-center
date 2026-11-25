@@ -30,14 +30,14 @@ body[data-align="right"] .msg{align-items:flex-end;animation-name:inRight}
 
 /* Look „Dunkel“ */
 body[data-theme="dark"] .tab{background:var(--tab,var(--accent));color:var(--tabfg,var(--ink));clip-path:polygon(0 0,100% 0,calc(100% - .7em) 100%,0 100%);border-radius:.3em 0 0 0}
-body[data-theme="dark"] .bubble{background:var(--bub,rgba(22,25,30,.9));color:var(--bubfg,#fff);border:1px solid rgba(255,255,255,.12);border-left:.3em solid var(--accent);border-radius:0 .6em .6em .6em;box-shadow:0 .15em .5em rgba(0,0,0,.35)}
+body[data-theme="dark"] .bubble{background:var(--bub,rgba(22,25,30,calc(.9*var(--bo,1))));color:var(--bubfg,#fff);border:1px solid rgba(255,255,255,.12);border-left:.3em solid var(--accent);border-radius:0 .6em .6em .6em;box-shadow:0 .15em .5em rgba(0,0,0,.35)}
 /* Look „Hell“ */
 body[data-theme="light"] .tab{background:linear-gradient(to right,var(--tab,var(--olive)) calc(100% - 1em),var(--accent) calc(100% - 1em));color:var(--tabfg,#fff);padding-right:1.4em;clip-path:polygon(0 0,100% 0,calc(100% - .55em) 100%,0 100%);border-radius:.35em 0 0 0}
-body[data-theme="light"] .bubble{background:var(--bub,#f7f7f4);color:var(--bubfg,#1c1e14);border-radius:0 .9em .9em .9em;box-shadow:0 .15em .5em rgba(0,0,0,.28)}
+body[data-theme="light"] .bubble{background:var(--bub,rgba(247,247,244,var(--bo,1)));color:var(--bubfg,#1c1e14);border-radius:0 .9em .9em .9em;box-shadow:0 .15em .5em rgba(0,0,0,.28)}
 /* Look „Kantig“ */
 body[data-theme="angular"] .tab{background:linear-gradient(115deg,var(--tab,var(--olive)) calc(100% - 1.25em),var(--accent) calc(100% - 1.25em),var(--accent) calc(100% - .9em),transparent calc(100% - .9em));color:var(--tabfg,#fff);
   padding:.16em 1.9em .12em 1em;clip-path:polygon(.55em 0,100% 0,calc(100% - .9em) 100%,0 100%)}
-body[data-theme="angular"] .bubble{margin-left:.8em;background:linear-gradient(to top,var(--accent) .24em,var(--bub,#f4f4f0) .24em);color:var(--bubfg,#1a1c10);padding:.4em 1.9em .62em 1.6em;
+body[data-theme="angular"] .bubble{margin-left:.8em;background:linear-gradient(to top,var(--accent) .24em,var(--bub,rgba(244,244,240,var(--bo,1))) .24em);color:var(--bubfg,#1a1c10);padding:.4em 1.9em .62em 1.6em;
   clip-path:polygon(.9em 0,100% 0,calc(100% - .9em) 100%,0 100%);filter:none}
 body[data-theme="angular"] .msg{filter:drop-shadow(0 .12em .25em rgba(0,0,0,.4))}
 body[data-theme="angular"] .dot{box-shadow:0 0 0 .08em rgba(255,255,255,.7)}
@@ -54,6 +54,11 @@ body[data-theme="dark"] .dot,body[data-theme="light"] .dot{box-shadow:0 0 0 .08e
 .card .who{color:var(--accent)}
 body[data-theme="light"] .card .who,body[data-theme="angular"] .card .who{color:inherit;text-decoration:underline;text-decoration-color:var(--accent);text-decoration-thickness:.14em;text-underline-offset:.14em;text-decoration-skip-ink:none}
 .card .sub{font-size:.8em;opacity:.8;margin-left:.45em;font-weight:600}
+/* 9.28.3: Textschatten (dunkler Look: dunkler Schatten, helle Blasen: heller Schein) */
+body[data-tshadow="soft"] .bubble{text-shadow:0 0 .22em rgba(0,0,0,.85),0 .05em .12em rgba(0,0,0,.8)}
+body[data-tshadow="strong"] .bubble{text-shadow:0 0 .18em #000,0 0 .3em #000,0 .06em .1em #000}
+body[data-tshadow="soft"][data-theme="light"] .bubble,body[data-tshadow="soft"][data-theme="angular"] .bubble{text-shadow:0 0 .22em rgba(255,255,255,.9),0 .05em .12em rgba(255,255,255,.8)}
+body[data-tshadow="strong"][data-theme="light"] .bubble,body[data-tshadow="strong"][data-theme="angular"] .bubble{text-shadow:0 0 .18em #fff,0 0 .3em #fff,0 .06em .1em #fff}
 /* 9.27.3: Textur über der Blase und eigene Symbole (Bildplätze der Installation) */
 body.has-tex .bubble::before{content:"";position:absolute;inset:0;background:var(--tex) center/auto repeat;opacity:var(--texo,.6);pointer-events:none;border-radius:inherit}
 .ico.custom{-webkit-mask:none;mask:none;background-color:transparent;background-size:contain;background-position:center;background-repeat:no-repeat}

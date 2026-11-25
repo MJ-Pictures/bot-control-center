@@ -6,6 +6,8 @@ const { createSseLimiter, rejectTooMany } = require("../shared/sse-limits");
 const { sanitizeMessage, sanitizeEvent, plainText, BADGE_URL, clean } = require("../shared/chat-overlay-core");
 
 const THEMES = Object.freeze(["dark", "light", "angular"]);
+const TEXT_SHADOWS = Object.freeze(["off", "soft", "strong"]);
+const GAME_MODES = Object.freeze(["show", "hide"]);
 const BOT_MODES = Object.freeze(["none", "game", "all"]);
 const FONTS = Object.freeze(["system", "akzidenz", "custom"]);
 const ANCHORS = Object.freeze(["bottom", "top"]);
@@ -18,7 +20,9 @@ const DEFAULT_CONFIG = Object.freeze({
   showBadges: true, showEmotes: true, emotes7tv: false, emotesBttv: false, emotesFfz: false, nameColorDot: false, followCards: true, raidCards: true, subCards: true, bitsCards: true, redeemCards: false,
   // 9.27.3: Anpassung. Leere Farben und Schriftnamen bedeuten: Standard des gewählten Looks.
   anchor: "bottom", widthPercent: 0, marginX: 24, marginY: 24, fontFamily: "",
-  tabColor: "", tabTextColor: "", bubbleColor: "", bubbleTextColor: "", textureOpacity: 60
+  tabColor: "", tabTextColor: "", bubbleColor: "", bubbleTextColor: "", textureOpacity: 60,
+  // 9.28.3: Deckkraft der Nachrichten (Namensreiter bleiben deckend), Textschatten, Spielmeldungen des Chat-Spiels im Chat
+  bubbleOpacity: 100, textShadow: "off", gameMessages: "show"
 });
 // Welcher Schalter der Konfiguration gehört zu welcher Karte
 const EVENT_SWITCH = Object.freeze({ follow: "followCards", raid: "raidCards", sub: "subCards", resub: "subCards", gift: "subCards", gifts: "subCards", bits: "bitsCards", redeem: "redeemCards" });
@@ -73,6 +77,9 @@ function normalizeConfig(input, base = DEFAULT_CONFIG, strict = true) {
   apply("widthPercent", v => { const n = Number(v); if (n === 0) return 0; return int(v, 20, 100, "Die Breite"); });
   apply("marginX", v => int(v, 0, 400, "Der seitliche Abstand"));
   apply("marginY", v => int(v, 0, 400, "Der Abstand oben/unten"));
+  apply("bubbleOpacity", v => int(v, 10, 100, "Die Deckkraft der Nachrichten"));
+  apply("textShadow", v => oneOf(v, TEXT_SHADOWS, "Der Textschatten"));
+  apply("gameMessages", v => oneOf(v, GAME_MODES, "Spielmeldungen im Chat"));
   apply("textureOpacity", v => int(v, 5, 100, "Die Stärke der Textur"));
   apply("fontFamily", v => { const t = String(v ?? "").trim(); if (t && !/^[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}$/.test(t)) throw new Error("Der Schriftname darf nur Buchstaben, Ziffern, Leerzeichen, Punkt, Strich und Unterstrich enthalten (höchstens 40 Zeichen)."); return t; });
   for (const [key, label] of [["tabColor", "Farbe der Namensleiste"], ["tabTextColor", "Textfarbe der Namensleiste"], ["bubbleColor", "Farbe der Nachricht"], ["bubbleTextColor", "Textfarbe der Nachricht"]])
@@ -135,7 +142,7 @@ function createChatOverlay({ read, write, images = null, badges = null, emotes =
     theme: config.theme, align: config.align, fontScale: config.fontScale, maxMessages: config.maxMessages, displaySeconds: config.displaySeconds,
     accentColor: config.accentColor, font: config.font, showBadges: config.showBadges, showEmotes: config.showEmotes, nameColorDot: config.nameColorDot,
     anchor: config.anchor, widthPercent: config.widthPercent, marginX: config.marginX, marginY: config.marginY, fontFamily: config.fontFamily,
-    tabColor: config.tabColor, tabTextColor: config.tabTextColor, bubbleColor: config.bubbleColor, bubbleTextColor: config.bubbleTextColor, textureOpacity: config.textureOpacity,
+    tabColor: config.tabColor, tabTextColor: config.tabTextColor, bubbleColor: config.bubbleColor, bubbleTextColor: config.bubbleTextColor, textureOpacity: config.textureOpacity, bubbleOpacity: config.bubbleOpacity, textShadow: config.textShadow,
     images: safeImages()
   });
   // Eigene Bilder der Installation (Symbole, Textur): nur Adressen der Form /branding/image/<Platz>?v=<Kennung> kommen ins Overlay.
@@ -186,6 +193,7 @@ function createChatOverlay({ read, write, images = null, badges = null, emotes =
 
   // Eingang: eine Nachricht, die einer der eigenen Bots gesendet hat. source = "stubenkontrolle" für das Chat-Spiel.
   function handleBotMessage({ source, name, text } = {}) {
+    if (source === "stubenkontrolle" && config.gameMessages === "hide") return false;   // 9.28.3: Spiel-Overlay zeigt die Meldungen selbst
     if (config.botMessages === "none") return false;
     if (config.botMessages === "game" && source !== "stubenkontrolle") return false;
     const body = clean(text, 500).trim();

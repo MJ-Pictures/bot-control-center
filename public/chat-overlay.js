@@ -42,6 +42,9 @@ function applyConfig(c) {
   for (const [slot, url] of Object.entries(cfg.images || {})) if (/^chat[A-Za-z]+$/.test(slot) && IMAGE_URL.test(String(url))) images[slot] = String(url);
   if (images.chatTexture) { b.style.setProperty("--tex", `url("${images.chatTexture}")`); b.style.setProperty("--texo", String(Math.max(0.05, Math.min(1, Number(cfg.textureOpacity) / 100 || 0.6)))); b.classList.add("has-tex"); }
   else { b.style.removeProperty("--tex"); b.classList.remove("has-tex"); }
+  { const bo = Math.min(100, Math.max(10, Math.round(Number(cfg.bubbleOpacity)) || 100)); b.style.setProperty("--bo", String(bo / 100)); // 9.28.3
+    b.dataset.tshadow = ["soft", "strong"].includes(cfg.textShadow) ? cfg.textShadow : "off";
+    if (COLOR.test(String(cfg.bubbleColor || ""))) { const h = cfg.bubbleColor; b.style.setProperty("--bub", `rgba(${parseInt(h.slice(1, 3), 16)},${parseInt(h.slice(3, 5), 16)},${parseInt(h.slice(5, 7), 16)},${bo / 100})`); } }
   b.style.setProperty("--accent", COLOR.test(cfg.accentColor) ? cfg.accentColor : "#FAB70A");
   b.style.setProperty("--scale", String(Math.min(1.6, Math.max(0.7, Number(cfg.fontScale) / 100 || 1))));
   trim();
