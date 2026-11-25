@@ -52,6 +52,7 @@ const FILES = {
   followathon: path.join(DATA_DIR, "followathon.json"),
   followerAlert: path.join(DATA_DIR, "follower-alert.json"),
   chatOverlay: path.join(DATA_DIR, "chat-overlay.json"),
+  accessProfiles: path.join(DATA_DIR, "access-profiles.json"),
   lurkReturn: path.join(DATA_DIR, "lurk-return.json"),
   bw: path.join(DATA_DIR, "bot-main-token.json"),
   helper: path.join(DATA_DIR, "hilfsausbilderbot-token.json"),
@@ -156,7 +157,8 @@ const PG_DOCUMENT_FILES = new Map([
   [FILES.publicPages,"public-pages"],
   [FILES.followathon,"followathon"],
   [FILES.followerAlert,"follower-alert"],
-  [FILES.chatOverlay,"chat-overlay"]
+  [FILES.chatOverlay,"chat-overlay"],
+  [FILES.accessProfiles,"access-profiles"]
 ]);
 
 function pgDocKey(file){return PG_DOCUMENT_FILES.get(file)||null;}

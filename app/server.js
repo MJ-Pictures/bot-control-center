@@ -8,6 +8,7 @@ const { createFollowathon } = require("./followathon");
 const { createSubathon } = require("./subathon");
 const { createFollowerAlert } = require("./follower-alert");
 const { createChatOverlay, createBadgeCache } = require("./chat-overlay");
+const accessProfiles = require("./access-profiles");
 const { createEmoteCache } = require("./chat-emotes");
 const { compactEvent: compactChatEventCard } = require("../shared/chat-overlay-core");
 // 9.11.0 · D1: Installationsprofil (Produktname, öffentliche Adresse, Ersteinrichtung, Spielbezeichnungen).
@@ -957,6 +958,22 @@ function unlinkDiscordIdentityFromUser(data,target,actor){
 function hasCapability(user,cap){if(!user)return false;if(user.localAdmin||user.globalOwner||user.globalAdmin||user.role==="owner"||user.role==="admin")return true;return Array.isArray(user.capabilities)&&user.capabilities.includes(cap);}
 function anyCapability(user,prefix){if(!user)return false;if(user.localAdmin||user.globalOwner||user.globalAdmin||user.role==="owner"||user.role==="admin")return true;return(user.capabilities||[]).some(x=>String(x).startsWith(prefix));}
 
+// 9.29.0: Zugriffsprofile (Dokument access-profiles). Kurzer Zwischenspeicher, damit nicht jede Anfrage das Dokument liest.
+let accessProfilesCache={at:0,value:null};
+function readAccessProfiles(){
+  const now=Date.now();
+  if(accessProfilesCache.value&&now-accessProfilesCache.at<3000)return accessProfilesCache.value;
+  const store=accessProfiles.normalizeStore(readJson(FILES.accessProfiles,{}),sanitizeCapabilities);
+  accessProfilesCache={at:now,value:store};return store;
+}
+function writeAccessProfiles(store){
+  const clean=accessProfiles.normalizeStore(store,sanitizeCapabilities);
+  writeJson(FILES.accessProfiles,clean);accessProfilesCache={at:Date.now(),value:clean};return clean;
+}
+function invalidateSessionsForUserIds(userIds){
+  const data=readUsers();
+  for(const id of userIds){const m=data.users.find(x=>String(x.id)===String(id));if(m)invalidateSessionsForManaged(m);}
+}
 function effectiveSessionUser(raw){
   if(!raw||Number(raw.securityRevision||0)!==SECURITY_SESSION_REVISION)return null;
   const createdAt=Date.parse(raw.created||raw.createdAt||"");
@@ -979,6 +996,15 @@ function effectiveSessionUser(raw){
   if(raw.authProvider==="discord"&&managed&&!managed.discordBackendEnabled){
     for(const cap of [...caps])if(cap.startsWith("discord.")&&!DISCORD_MODERATOR_DEFAULT.includes(cap))caps.delete(cap);
   }
+  // 9.29.0: Rechte aus Zugriffsprofilen (zugewiesen oder automatisch über Twitch-Moderator bzw. Discord-Rolle)
+  try{
+    const profileCaps=accessProfiles.capabilitiesFor(readAccessProfiles(),{
+      userId:managed?.id||null,
+      twitchModerator:externalFresh&&raw.authProvider!=="discord"&&!!raw.isModerator,
+      guildRoles:externalFresh&&raw.authProvider==="discord"&&Array.isArray(raw.guildRoles)?raw.guildRoles:[]
+    },sanitizeCapabilities);
+    profileCaps.forEach(x=>caps.add(x));
+  }catch(e){console.error("⚠️ Zugriffsprofile:",e.message);}
   const capabilities=sanitizeCapabilities([...caps]);
   if(!capabilities.length)return null;
   return{
@@ -1033,6 +1059,7 @@ function privilegedRouteRequirement(pathname,method){
   // 8.9.5: Diagnose-Karte im Systemstatus. Der Handler prüft requireGlobalAdmin; ohne Eintrag hier sperrte die Default-Deny-Prüfung die Route.
   if(p==="/api/admin/performance")return"admin";
   if(p==="/api/users"||p.startsWith("/api/users/"))return"admin";
+  if(p==="/api/access-profiles"||p.startsWith("/api/access-profiles/"))return"admin"; // 9.29.0: Zugriffsprofile
   return null;
 }
 
@@ -3944,7 +3971,64 @@ const server = http.createServer(async (req, res) => {
     if (u.pathname === "/api/users" && req.method === "GET") {
       const me = requireGlobalAdmin(req,res); if (!me) return;
       const users = readUsers().users;
-      return json(res,200,{users,accessCatalog:ACCESS_CATALOG});
+      return json(res,200,{users,accessCatalog:ACCESS_CATALOG,accessProfiles:readAccessProfiles()});
+    }
+
+    // 9.29.0: Zugriffsprofile
+    if (u.pathname === "/api/access-profiles" && req.method === "GET") {
+      const me = requireGlobalAdmin(req,res); if (!me) return;
+      return json(res,200,{ok:true,...readAccessProfiles(),accessCatalog:ACCESS_CATALOG});
+    }
+    if (u.pathname === "/api/access-profiles" && req.method === "POST") {
+      const me = requireGlobalAdmin(req,res); if (!me) return;
+      try{
+        const body=await readBody(req);const store=readAccessProfiles();
+        const profile=accessProfiles.createProfile(store,body,sanitizeCapabilities,me.login||me.name||"admin");
+        writeAccessProfiles(store);
+        audit(me.login||me.name||"admin","access-profile.created",{id:profile.id,name:profile.name,capabilities:profile.capabilities});
+        return json(res,200,{ok:true,profile,...readAccessProfiles()});
+      }catch(e){return json(res,Number(e?.status)||400,{ok:false,error:e.message});}
+    }
+    if (u.pathname === "/api/access-profiles/rules" && req.method === "PUT") {
+      const me = requireGlobalAdmin(req,res); if (!me) return;
+      try{
+        const body=await readBody(req);const store=readAccessProfiles();
+        accessProfiles.setRules(store,body.rules);writeAccessProfiles(store);
+        audit(me.login||me.name||"admin","access-profile.rules.updated",{rules:store.rules});
+        return json(res,200,{ok:true,...readAccessProfiles()});
+      }catch(e){return json(res,Number(e?.status)||400,{ok:false,error:e.message});}
+    }
+    if (u.pathname.startsWith("/api/access-profiles/") && (req.method === "PUT" || req.method === "DELETE")) {
+      const me = requireGlobalAdmin(req,res); if (!me) return;
+      const id=decodeURIComponent(u.pathname.split("/").filter(Boolean)[2]||"");
+      try{
+        const store=readAccessProfiles();
+        if(req.method==="PUT"){
+          const body=await readBody(req);
+          const profile=accessProfiles.updateProfile(store,id,body,sanitizeCapabilities,me.login||me.name||"admin");
+          const affected=Object.entries(store.assignments).filter(([,pids])=>pids.includes(id)).map(([uid])=>uid);
+          writeAccessProfiles(store);invalidateSessionsForUserIds(affected);
+          audit(me.login||me.name||"admin","access-profile.updated",{id,name:profile.name,capabilities:profile.capabilities,affectedUsers:affected.length});
+          return json(res,200,{ok:true,profile,...readAccessProfiles()});
+        }
+        const result=accessProfiles.deleteProfile(store,id);
+        writeAccessProfiles(store);invalidateSessionsForUserIds(result.users);
+        audit(me.login||me.name||"admin","access-profile.deleted",{id,affectedUsers:result.users.length,removedRules:result.rules});
+        return json(res,200,{ok:true,...readAccessProfiles()});
+      }catch(e){return json(res,Number(e?.status)||400,{ok:false,error:e.message});}
+    }
+    if (u.pathname.startsWith("/api/users/") && u.pathname.endsWith("/profiles") && req.method === "PUT") {
+      const me=requireGlobalAdmin(req,res); if(!me)return;
+      const targetId=decodeURIComponent(u.pathname.split("/").filter(Boolean)[2]||"");
+      try{
+        const body=await readBody(req);const data=readUsers();const target=data.users.find(x=>String(x.id)===String(targetId));
+        if(!target) return json(res,404,{error:"Benutzer nicht gefunden."});
+        { const gate=mayManageTarget(me,target); if(!gate.ok) return json(res,403,{error:gate.error}); }
+        const store=readAccessProfiles();const list=accessProfiles.assign(store,target.id,body.profileIds);
+        writeAccessProfiles(store);invalidateSessionsForManaged(target);
+        audit(me.login||me.name||"admin","user.profiles.updated",{targetId:target.id,profileIds:list});
+        return json(res,200,{ok:true,profileIds:list,...readAccessProfiles()});
+      }catch(e){return json(res,Number(e?.status)||400,{ok:false,error:e.message});}
     }
 
     if (u.pathname.startsWith("/api/users/") && u.pathname.endsWith("/capabilities") && req.method === "PUT") {
@@ -4062,6 +4146,7 @@ const server = http.createServer(async (req, res) => {
       invalidateSessionsForManaged(target);
       data.users = data.users.filter(x => String(x.id) !== String(targetId) && String(x.twitchUserId||"") !== String(targetId));
       writeUsers(data);
+      try{const ps=readAccessProfiles();if(ps.assignments[String(target.id)]){delete ps.assignments[String(target.id)];writeAccessProfiles(ps);}}catch(e){console.error("⚠️ Zugriffsprofile:",e.message);}
       audit(me.login,"user.access.deleted",{
         target:target.login,
         twitchUserId:target.twitchUserId,

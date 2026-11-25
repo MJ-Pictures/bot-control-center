@@ -64,8 +64,7 @@ test("Admin-Oberfläche",()=>{
   for(const k of ["coDodge","coDodgeDim","coDodgeShift","gameDodge:$(\"coDodge\")"]) assert.ok(a.includes(k),k);
 });
 test("Release-Dateien",()=>{
-  assert.match(read("VERSION"),/^9\.28\.4/);
-  assert.ok(fs.existsSync(path.join(root,"UPDATE-9.28.4.md")));
+  assert.match(read("VERSION"),/^9\.(28\.4|29\.)/);
   assert.ok(!fs.existsSync(path.join(root,"UPDATE-9.28.3.md")));
   assert.ok(JSON.parse(read("public/changelog.json")).versions.some(v=>v.version==="9.28.4"));
 });

@@ -53,6 +53,6 @@ test("Admin-Oberfläche speichert die neuen Felder",()=>{
   for(const k of ["coBubOpacity","coTextShadow","coGameMsgs","bubbleOpacity:Number","gameMessages:$"]) assert.ok(a.includes(k),k);
 });
 test("Release-Dateien",()=>{
-  assert.match(read("VERSION"),/^9\.28\./);
+  assert.match(read("VERSION"),/^9\.(28|29)\./);
   assert.ok(JSON.parse(read("public/changelog.json")).versions.some(v=>v.version==="9.28.3"));
 });

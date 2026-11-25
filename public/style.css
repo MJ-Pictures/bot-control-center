@@ -2472,3 +2472,11 @@ a.btn{display:inline-flex;align-items:center;justify-content:center}
 .co-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0 18px;margin-bottom:6px}
 .co-color{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .co-color input[type=color]{width:56px;flex:none}
+
+/* 9.29.0: Zugriffsprofile */
+.access-sub{margin:16px 0 4px;font-size:1rem}
+#accessProfilesPanel .user-add-row{grid-template-columns:1fr auto}
+#accessProfilesPanel .access-profile-card{margin:10px 0}
+.profile-pick{display:flex;flex-direction:column;gap:6px;margin:6px 0 10px}
+.rule-row{display:grid;grid-template-columns:minmax(150px,1fr) minmax(150px,1fr) auto minmax(150px,1fr) auto;gap:8px;align-items:center;margin:8px 0}
+@media (max-width:760px){.rule-row{grid-template-columns:1fr}#accessProfilesPanel .user-add-row{grid-template-columns:1fr}}

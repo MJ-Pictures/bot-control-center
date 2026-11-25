@@ -2,6 +2,15 @@
 
 Dieses Dokument wird aus `public/changelog.json` erzeugt, dem Protokoll, das auch die Oberfläche anzeigt. Die neueste Version steht oben.
 
+## 9.29.0 – 2026-11-25
+
+**Zugriffsprofile unter Administration → Benutzer & Zugriffe**
+
+- Neu: Zugriffsprofile – benannte, wiederverwendbare Rechtesätze (zum Beispiel „Moderations-Team“) mit derselben Rechtematrix wie bei Benutzern. Anlegen, bearbeiten, duplizieren und löschen unter Administration → Benutzer & Zugriffe → Zugriffsprofile.
+- Pro Benutzer sind mehrere Profile möglich; die Rechte werden zusammengerechnet und um die bisherigen Einzelrechte des Benutzers ergänzt (jetzt als „Zusätzliche Einzelrechte“ bezeichnet). Änderungen an einem Profil gelten sofort für alle Zugewiesenen, die betroffenen Sitzungen werden dafür neu aufgebaut.
+- Neu: automatische Zuordnung per Regel – Twitch-Moderatoren oder Mitglieder einer Discord-Rolle (Rollen-ID) erhalten ein Profil zusätzlich beim Anmelden.
+- Bestehende Benutzer behalten ihre Rechte unverändert; ohne Profile verhält sich alles wie bisher. Owner und Administratoren haben weiter Vollzugriff. Alle Änderungen stehen im Audit-Protokoll.
+
 ## 9.28.4 – 2026-11-25
 
 **Chat-Overlay weicht dem Punktespiel aus (optional)**

@@ -2719,24 +2719,12 @@ async function renderUsers(){
   $("users").innerHTML=`
     <div class="title"><div><h2>Benutzer & Zugriffe</h2><p class="hint">Ansehen und Bearbeiten werden getrennt vergeben. Bearbeiten setzt Ansehen automatisch voraus. Nicht ausdrücklich freigegebene Bereiche bleiben serverseitig gesperrt.</p></div></div>
     <div class="card user-add-card"><h3>Twitch-Benutzer hinzufügen</h3><div class="user-add-row"><input id="newUserLogin" placeholder="Twitch-Login"><button id="addUserBtn" type="button">Hinzufügen</button></div><p class="hint">Der Eintrag selbst vergibt noch keine zusätzlichen Bereiche. Twitch-Mods sehen standardmäßig nur das Dashboard.</p></div>
+    <div id="accessProfilesPanel"></div>
     <div id="usersList">Lade …</div>`;
 
   const capInput=(cap,checked,type)=>cap?`<input type="checkbox" data-cap="${esc(cap)}" data-cap-type="${type}" ${checked?"checked":""}>`:`<span class="cap-na">—</span>`;
 
-  async function loadUsers(){
-    const r=await fetch("/api/users",{cache:"no-store"});const data=await r.json();
-    if(!r.ok){$("usersList").innerHTML=`<div class="card error">${esc(data.error||"Benutzer konnten nicht geladen werden.")}</div>`;return;}
-    const users=data.users||[],catalog=data.accessCatalog||[],groups=[...new Set(catalog.map(x=>x.group))];
-
-    $("usersList").innerHTML=users.length?users.map(u=>{
-      const caps=new Set(u.capabilities||[]),full=u.globalOwner||u.globalAdmin;
-      const tw=u.twitchUserId?`<div><strong>🟣 Twitch</strong> ${esc(u.displayName||u.login||"")} <span class="hint">@${esc(u.login||"")} · ${esc(u.twitchUserId)}</span></div>`:`<div class="hint">🟣 Twitch: nicht verknüpft</div>`;
-      const dc=u.discordUserId?`<div class="identity-row"><div><strong>🔵 Discord</strong> ${esc(u.discordDisplayName||u.discordUsername||"")} <span class="hint">@${esc(u.discordUsername||"")} · ${esc(u.discordUserId)}</span></div><button type="button" class="secondary danger-outline unlink-user-discord">Verknüpfung aufheben</button></div>`:`<div class="hint">🔵 Discord: nicht verknüpft</div>`;
-      const displayName=esc(u.displayName||u.discordDisplayName||u.login||u.discordUsername||"Benutzer");
-      const status=u.globalOwner?'<span class="diag-badge ok">Owner</span>':u.globalAdmin?'<span class="diag-badge ok">Administrator</span>':'<span class="diag-badge">individuell</span>';
-      const viewCount=catalog.filter(x=>x.view&&caps.has(x.view)).length,editCount=catalog.filter(x=>x.edit&&caps.has(x.edit)).length;
-
-      const matrix=groups.map(g=>{
+  const matrixHtml=(caps,catalog,groups)=>groups.map(g=>{
         const rows=catalog.filter(x=>x.group===g),visibleRows=rows.filter(x=>!permissionRowHidden(x)),hiddenCount=rows.length-visibleRows.length;
         return `<details class="permission-group" data-permission-group="${esc(g)}" ${visibleRows.length?"":"hidden"}>
           <summary class="permission-group-summary"><strong>${esc(g)}</strong><span class="permission-summary-count">${visibleRows.filter(x=>x.view&&caps.has(x.view)).length} Ansicht · ${visibleRows.filter(x=>x.edit&&caps.has(x.edit)).length} Bearbeiten</span><span class="access-user-chevron">⌄</span></summary>
@@ -2753,11 +2741,97 @@ async function renderUsers(){
         </details>`;
       }).join("");
 
+  // 9.29.0: Zugriffsprofile
+  const profileRow=(u,ap)=>{
+    const mine=new Set((ap.assignments||{})[u.id]||[]);
+    const auto=new Set();
+    for(const r of ap.rules||[])if((r.type==="twitch-moderator"&&u.twitchUserId)||(r.type==="discord-role"&&u.discordUserId))auto.add(r.profileId);
+    if(!(ap.profiles||[]).length)return `<h4 class="access-sub">Zugriffsprofile</h4><p class="hint">Noch keine Profile angelegt. Profile legst du oben im Bereich „Zugriffsprofile“ an.</p>`;
+    return `<h4 class="access-sub">Zugriffsprofile</h4><div class="profile-pick">${(ap.profiles||[]).map(p=>`<label class="checkline"><input type="checkbox" data-profile-id="${esc(p.id)}" ${mine.has(p.id)?"checked":""}> ${esc(p.name)}${p.description?` <span class="hint">${esc(p.description)}</span>`:""}${auto.has(p.id)?' <span class="diag-badge">auch automatisch über eine Regel</span>':""}</label>`).join("")}</div><div class="user-actions"><button class="save-user-profiles" type="button">Profile speichern</button></div>`;
+  };
+  const wireMatrix=root=>{
+    root.querySelectorAll('[data-cap-type="edit"]').forEach(edit=>edit.addEventListener("change",()=>{if(edit.checked){const view=edit.closest(".permission-row")?.querySelector('[data-cap-type="view"]');if(view)view.checked=true;}}));
+    root.querySelectorAll('[data-cap-type="view"]').forEach(view=>view.addEventListener("change",()=>{if(!view.checked){const edit=view.closest(".permission-row")?.querySelector('[data-cap-type="edit"]');if(edit)edit.checked=false;}}));
+  };
+  const profileCard=(p,ap,catalog,groups)=>{
+    const users=Object.values(ap.assignments||{}).filter(ids=>ids.includes(p.id)).length;
+    const rules=(ap.rules||[]).filter(r=>r.profileId===p.id).length;
+    return `<details class="card access-profile-card" data-profile-id="${esc(p.id)}">
+      <summary class="access-user-summary"><div class="access-user-summary-main"><strong>${esc(p.name)}</strong><span class="hint">${esc(p.description||"")}</span></div><span class="hint">${(p.capabilities||[]).length} Rechte · ${users} Benutzer · ${rules} Regel${rules===1?"":"n"}</span></summary>
+      <div class="access-user-body">
+        <div class="co-grid"><label>Name<input class="pf-name" maxlength="60" value="${esc(p.name)}"></label><label>Beschreibung (optional)<input class="pf-desc" maxlength="200" value="${esc(p.description||"")}"></label></div>
+        <div class="permission-groups">${matrixHtml(new Set(p.capabilities||[]),catalog,groups)}</div>
+        <p class="hint">Änderungen gelten sofort für alle Benutzer mit diesem Profil.</p>
+        <div class="user-actions"><button class="pf-save" type="button">Profil speichern</button><button class="pf-copy" type="button">Duplizieren</button><button class="pf-delete danger" type="button">Löschen</button></div>
+      </div></details>`;
+  };
+  function renderProfilesPanel(ap,catalog,groups){
+    const box=$("accessProfilesPanel");if(!box)return;
+    const profiles=ap.profiles||[];
+    const profileOpts=sel=>profiles.map(p=>`<option value="${esc(p.id)}" ${p.id===sel?"selected":""}>${esc(p.name)}</option>`).join("");
+    const ruleRow=r=>`<div class="rule-row" data-rule-id="${esc(r.id||"")}">
+      <select class="rl-type"><option value="twitch-moderator" ${r.type==="twitch-moderator"?"selected":""}>Twitch-Moderator</option><option value="discord-role" ${r.type==="discord-role"?"selected":""}>Discord-Rolle</option></select>
+      <input class="rl-role" placeholder="Rollen-ID (nur Discord)" inputmode="numeric" value="${esc(r.roleId||"")}" ${r.type==="discord-role"?"":"disabled"}>
+      <span>erhält</span><select class="rl-profile">${profileOpts(r.profileId)}</select><button class="rl-del" type="button" title="Regel entfernen">✕</button></div>`;
+    box.innerHTML=`<details class="card" id="profilesDetails"><summary class="access-user-summary"><div class="access-user-summary-main"><strong>Zugriffsprofile</strong><span class="hint">Benannte Rechtesätze, die du mehreren Benutzern geben oder automatisch zuordnen kannst.</span></div><span class="hint">${profiles.length} Profil${profiles.length===1?"":"e"}</span></summary>
+      <div class="access-user-body">
+        <p class="hint">Ein Profil enthält Ansehen- und Bearbeiten-Rechte wie bei einem Benutzer. Ein Benutzer kann mehrere Profile haben; die Rechte werden zusammengerechnet und um die Einzelrechte des Benutzers ergänzt. Profiländerungen wirken sofort auf alle Zugewiesenen. Owner und Administratoren haben immer Vollzugriff.</p>
+        <div class="user-add-row"><input id="newProfileName" maxlength="60" placeholder="Name des neuen Profils"><button id="addProfileBtn" type="button">Profil anlegen</button></div>
+        <div id="profileList">${profiles.map(p=>profileCard(p,ap,catalog,groups)).join("")||'<p class="hint">Noch keine Profile.</p>'}</div>
+        <h4 class="access-sub">Automatische Zuordnung</h4>
+        <p class="hint">Wer sich anmeldet und die Bedingung erfüllt, erhält das Profil zusätzlich. Twitch-Moderator-Status bzw. Discord-Rollen werden beim Anmelden von Twitch bzw. Discord übernommen. Die Rollen-ID findest du in Discord (Entwicklermodus → Rechtsklick auf die Rolle → ID kopieren).</p>
+        <div id="ruleList">${(ap.rules||[]).map(ruleRow).join("")}</div>
+        <div class="user-actions"><button id="addRuleBtn" type="button" ${profiles.length?"":"disabled"}>Regel hinzufügen</button><button id="saveRulesBtn" type="button">Regeln speichern</button></div>
+      </div></details>`;
+    const det=$("profilesDetails");det.open=localStorage.getItem("bwk-profiles-open")==="1";
+    det.addEventListener("toggle",e=>{if(e.target===det)localStorage.setItem("bwk-profiles-open",det.open?"1":"0");});
+    wireMatrix(box);
+    const api=async(url,method,body)=>{const rr=await fetch(url,{method,headers:{"Content-Type":"application/json"},body:body===undefined?undefined:JSON.stringify(body)});const j=await rr.json().catch(()=>({}));if(!rr.ok)throw Error(j.error||"Aktion fehlgeschlagen.");return j;};
+    $("addProfileBtn").addEventListener("click",async()=>{try{await api("/api/access-profiles","POST",{name:$("newProfileName").value,capabilities:[]});showToast("Profil angelegt. Rechte unten auswählen und speichern.","success");await loadUsers();}catch(e){showToast(e.message,"error");}});
+    box.querySelectorAll(".access-profile-card").forEach(card=>{
+      const id=card.dataset.profileId,collect=()=>({name:card.querySelector(".pf-name").value,description:card.querySelector(".pf-desc").value,capabilities:[...card.querySelectorAll("[data-cap]:checked")].map(x=>x.dataset.cap)});
+      card.querySelector(".pf-save").addEventListener("click",async()=>{try{await api(`/api/access-profiles/${encodeURIComponent(id)}`,"PUT",collect());showToast("Profil gespeichert. Gilt sofort für alle Zugewiesenen.","success");await loadUsers();}catch(e){showToast(e.message,"error");}});
+      card.querySelector(".pf-copy").addEventListener("click",async()=>{try{const c=collect();await api("/api/access-profiles","POST",{...c,name:`${c.name} (Kopie)`.slice(0,60)});showToast("Profil dupliziert.","success");await loadUsers();}catch(e){showToast(e.message,"error");}});
+      card.querySelector(".pf-delete").addEventListener("click",async()=>{
+        const n=Object.values(ap.assignments||{}).filter(ids=>ids.includes(id)).length;
+        if(!(await askDelete(`Profil wirklich löschen?${n?` ${n} Benutzer verlieren die Rechte dieses Profils.`:""} Regeln mit diesem Profil werden entfernt.`)))return;
+        try{await api(`/api/access-profiles/${encodeURIComponent(id)}`,"DELETE");showToast("Profil gelöscht.","success");await loadUsers();}catch(e){showToast(e.message,"error");}});
+    });
+    const bindRule=row=>{
+      const type=row.querySelector(".rl-type"),role=row.querySelector(".rl-role");
+      type.addEventListener("change",()=>{role.disabled=type.value!=="discord-role";if(role.disabled)role.value="";});
+      row.querySelector(".rl-del").addEventListener("click",()=>row.remove());
+    };
+    box.querySelectorAll(".rule-row").forEach(bindRule);
+    $("addRuleBtn").addEventListener("click",()=>{const tmp=document.createElement("div");tmp.innerHTML=ruleRow({type:"twitch-moderator",profileId:profiles[0]?.id||""});const row=tmp.firstElementChild;$("ruleList").appendChild(row);bindRule(row);});
+    $("saveRulesBtn").addEventListener("click",async()=>{
+      const rules=[...box.querySelectorAll(".rule-row")].map(r=>({id:r.dataset.ruleId||undefined,type:r.querySelector(".rl-type").value,roleId:r.querySelector(".rl-role").value.trim(),profileId:r.querySelector(".rl-profile").value}));
+      try{await api("/api/access-profiles/rules","PUT",{rules});showToast("Regeln gespeichert.","success");await loadUsers();}catch(e){showToast(e.message,"error");}
+    });
+  }
+
+  async function loadUsers(){
+    const r=await fetch("/api/users",{cache:"no-store"});const data=await r.json();
+    if(!r.ok){$("usersList").innerHTML=`<div class="card error">${esc(data.error||"Benutzer konnten nicht geladen werden.")}</div>`;return;}
+    const users=data.users||[],catalog=data.accessCatalog||[],groups=[...new Set(catalog.map(x=>x.group))];
+    const ap=data.accessProfiles||{profiles:[],assignments:{},rules:[]};
+    renderProfilesPanel(ap,catalog,groups);
+
+    $("usersList").innerHTML=users.length?users.map(u=>{
+      const caps=new Set(u.capabilities||[]),full=u.globalOwner||u.globalAdmin;
+      const tw=u.twitchUserId?`<div><strong>🟣 Twitch</strong> ${esc(u.displayName||u.login||"")} <span class="hint">@${esc(u.login||"")} · ${esc(u.twitchUserId)}</span></div>`:`<div class="hint">🟣 Twitch: nicht verknüpft</div>`;
+      const dc=u.discordUserId?`<div class="identity-row"><div><strong>🔵 Discord</strong> ${esc(u.discordDisplayName||u.discordUsername||"")} <span class="hint">@${esc(u.discordUsername||"")} · ${esc(u.discordUserId)}</span></div><button type="button" class="secondary danger-outline unlink-user-discord">Verknüpfung aufheben</button></div>`:`<div class="hint">🔵 Discord: nicht verknüpft</div>`;
+      const displayName=esc(u.displayName||u.discordDisplayName||u.login||u.discordUsername||"Benutzer");
+      const status=u.globalOwner?'<span class="diag-badge ok">Owner</span>':u.globalAdmin?'<span class="diag-badge ok">Administrator</span>':'<span class="diag-badge">individuell</span>';
+      const viewCount=catalog.filter(x=>x.view&&caps.has(x.view)).length,editCount=catalog.filter(x=>x.edit&&caps.has(x.edit)).length;
+
+      const matrix=matrixHtml(caps,catalog,groups);
+
       return `<details class="card access-user-card" data-user-id="${esc(u.id)}">
         <summary class="access-user-summary"><div class="access-user-summary-main"><strong>${displayName}</strong><span class="hint">${u.twitchUserId?`🟣 @${esc(u.login||"")}`:""}${u.twitchUserId&&u.discordUserId?" · ":""}${u.discordUserId?`🔵 @${esc(u.discordUsername||"")}`:""}</span></div><div class="access-user-summary-meta">${status}${!full?`<span class="hint">${viewCount} Ansicht · ${editCount} Bearbeiten</span>`:""}<span class="access-user-chevron">⌄</span></div></summary>
         <div class="access-user-body">
           <div class="access-user-head"><div>${tw}${dc}</div></div>
-          ${full?'<p class="hint">Owner/Administratoren haben immer Vollzugriff.</p>':`<div class="permission-groups">${matrix}</div>`}
+          ${full?'<p class="hint">Owner/Administratoren haben immer Vollzugriff.</p>':`${profileRow(u,ap)}<h4 class="access-sub">Zusätzliche Einzelrechte</h4><p class="hint">Gelten zusätzlich zu den Rechten der Profile.</p><div class="permission-groups">${matrix}</div>`}
           <div class="user-actions">${full?"":'<button class="save-capabilities" type="button">Berechtigungen speichern</button>'}${isGlobalOwner()&&u.twitchUserId?`<select class="user-role"><option value="viewer" ${u.role==="viewer"||u.role==="editor"?"selected":""}>Standardbenutzer</option><option value="admin" ${u.role==="admin"?"selected":""}>Globaler Administrator</option><option value="owner" ${u.role==="owner"?"selected":""}>Globaler Owner</option></select><button class="save-user-role" type="button">Globalstatus speichern</button>`:""}<button class="delete-user danger" type="button">Datensatz entfernen</button></div>
         </div>
       </details>`;
@@ -2785,6 +2859,11 @@ async function renderUsers(){
         if(!rr.ok)return showToast(j.error||"Discord-Verknüpfung konnte nicht aufgehoben werden.","error");
         showToast("Discord-Verknüpfung aufgehoben.","success");
         await loadUsers();
+      });
+      card.querySelector(".save-user-profiles")?.addEventListener("click",async()=>{
+        const profileIds=[...card.querySelectorAll("[data-profile-id]:checked")].map(x=>x.dataset.profileId);
+        const rr=await fetch(`/api/users/${encodeURIComponent(id)}/profiles`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({profileIds})});const j=await rr.json().catch(()=>({}));
+        if(!rr.ok)return showToast(j.error||"Profile konnten nicht gespeichert werden.","error");showToast("Profile gespeichert.","success");await loadUsers();
       });
       card.querySelector(".save-capabilities")?.addEventListener("click",async()=>{
         const capabilities=[...card.querySelectorAll("[data-cap]:checked")].map(x=>x.dataset.cap);

@@ -37,7 +37,7 @@ Jede Funktion lässt sich als Modul unter Administration → Integrationen einze
 
 ### Das Control Center selbst
 
-- **Anmeldung über Twitch und Discord** mit abgestuften Zugriffsrechten (Owner, Administratoren, Moderatoren) und eigener Rechteverwaltung.
+- **Anmeldung über Twitch und Discord** mit abgestuften Zugriffsrechten (Owner, Administratoren, Moderatoren) und eigener Rechteverwaltung: Rechte pro Benutzer oder über benannte Zugriffsprofile, die sich mehreren Benutzern zuweisen oder automatisch per Twitch-Moderator-Status bzw. Discord-Rolle zuordnen lassen.
 - **Profil & Branding:** eigener Name der Oberfläche, Bilder (Banner, Emblem, Figur, Logo, Browser-Symbol), Standardtexte, Fußzeile und Impressumslink des Betreibers.
 - **Systemstatus** mit Dienste-Übersicht und Neustart einzelner Dienste, **Sicherung und Wiederherstellung** von Datenbank, Einstellungen und Bildern.
 - **Updates** mit Freigabe durch den Betreiber: Neue Versionen werden gemeldet, installiert wird nur nach ausdrücklicher Freigabe (Version und Prüfsumme).
