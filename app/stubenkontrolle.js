@@ -7,6 +7,12 @@ const crypto = require("crypto");
 const { URL } = require("url");
 const { NEUTRAL_GAME, FIXED_GAME_COMMANDS, normalizeGame } = require("../shared/installation-profile");
 
+const OVERLAY_ANCHORS = ["top-left","top-center","top-right","middle-left","middle-center","middle-right","bottom-left","bottom-center","bottom-right"];
+// 9.28.1: Layout-Einstellungen, wie das Overlay sie bekommt (Zustandsnachricht und Test-Szenarien).
+function overlayLayout(cfg){
+  return {scale:cfg.overlayScale,anchor:cfg.overlayAnchor,margin:cfg.overlayMargin,detail:cfg.overlayDetail};
+}
+
 const DEFAULT_CONFIG = {
   enabled: true,
   bot: "", // 9.15.0: leer = Haupt-Bot der Installation (die Twitch-Laufzeit löst die Bot-Wahl auf)
@@ -29,6 +35,12 @@ const DEFAULT_CONFIG = {
   overlayPublicUrl: "",
   overlayKey: "",
   overlayStatusDisplay: "problem",
+  // 9.28.1: Lage und Größe des Panels im Overlay. Größe in Prozent (100 = bisherige Breite 1180 px),
+  // Anker = eines von neun Feldern, Rand in Pixel (bezogen auf 1920×1080), Detailstufe full = wie bisher, compact = nur Kopfzeile und Ergebnistext.
+  overlayScale: 80,
+  overlayAnchor: "bottom-center",
+  overlayMargin: 60,
+  overlayDetail: "full",
   // 8.9.6: Beitritts-Meldungen im Chat. auto = die ersten N einzeln, danach Sammelmeldung;
   // all = jeden einzeln; everyNth = nur jeden N-ten; off = keine. Die Eröffnung der Runde kommt immer.
   joinChatMode: "auto",
@@ -97,6 +109,10 @@ function normalizeConfig(input={},phraseDefaults=DEFAULT_CONFIG.phrases,titleDef
   c.overlayPublicUrl=String(c.overlayPublicUrl||DEFAULT_CONFIG.overlayPublicUrl).trim();
   c.overlayKey=String(c.overlayKey||"").trim();
   c.overlayStatusDisplay=["problem","always","never"].includes(c.overlayStatusDisplay)?c.overlayStatusDisplay:"problem";
+  c.overlayScale=int(c.overlayScale,40,100);
+  c.overlayAnchor=OVERLAY_ANCHORS.includes(c.overlayAnchor)?c.overlayAnchor:DEFAULT_CONFIG.overlayAnchor;
+  c.overlayMargin=int(c.overlayMargin,0,300);
+  c.overlayDetail=["full","compact"].includes(c.overlayDetail)?c.overlayDetail:"full";
   c.joinChatMode=["auto","all","everyNth","off"].includes(c.joinChatMode)?c.joinChatMode:"auto";
   c.joinChatAutoSingles=int(c.joinChatAutoSingles,1,50);
   c.joinChatSummarySeconds=int(c.joinChatSummarySeconds,3,60);
@@ -277,7 +293,7 @@ function createStubenkontrolle({dataDir,storage=null,storageKey="stubenkontrolle
     if(s.activeRound?.status==="open") phase="registration";
     else if(s.activeRound?.status==="control") phase="control";
     else if(r?.status==="completed" && r?.overlayHideAt && Date.now()<new Date(r.overlayHideAt).getTime()) phase="result";
-    return {type:"stubenkontrolle.state",serverTime:Date.now(),phase,round:roundPublic(r),nextRoundAllowedAt:s.nextRoundAllowedAt,config:{minBet:s.config.minBet,maxBet:s.config.maxBet,command:`${names().commands.start} BETRAG`,gameName:names().name,pointsName:names().pointsName,resultDisplaySeconds:s.config.resultDisplaySeconds,statusDisplay:s.config.overlayStatusDisplay,titles:s.config.overlayTitles}};
+    return {type:"stubenkontrolle.state",serverTime:Date.now(),phase,round:roundPublic(r),nextRoundAllowedAt:s.nextRoundAllowedAt,config:{minBet:s.config.minBet,maxBet:s.config.maxBet,command:`${names().commands.start} BETRAG`,gameName:names().name,pointsName:names().pointsName,resultDisplaySeconds:s.config.resultDisplaySeconds,statusDisplay:s.config.overlayStatusDisplay,titles:s.config.overlayTitles,layout:overlayLayout(s.config)}};
   }
   function wsFrame(text){
     const payload=Buffer.from(String(text));
@@ -636,7 +652,7 @@ function createStubenkontrolle({dataDir,storage=null,storageKey="stubenkontrolle
       {userId:"2",login:"bravo",name:"Bravo",bet:200,outcome:scenario==="result"?"caught":null,payout:0,delta:-200},
       {userId:"3",login:"charlie",name:"Charlie",bet:150,outcome:scenario==="result"?(allCaught?"caught":"passed"):null,payout:allCaught?0:270,delta:allCaught?-150:120}
     ];
-    overlayTestState={type:"stubenkontrolle.state",serverTime:Date.now(),phase:scenario,round:{id:"TEST-RUNDE-"+crypto.randomBytes(4).toString("hex"),status:scenario==="registration"?"open":scenario==="result"?"completed":scenario,factor:1.8,joinEndsAt:end,controlEndsAt:end,participants:sample,mode:scenario==="result"?(allCaught?"allCaught":"individual"):null},config:{minBet:50,maxBet:500,command:`${names().commands.start} BETRAG`,gameName:names().name,pointsName:names().pointsName,resultDisplaySeconds:cfg.resultDisplaySeconds,statusDisplay:cfg.overlayStatusDisplay},test:true};
+    overlayTestState={type:"stubenkontrolle.state",serverTime:Date.now(),phase:scenario,round:{id:"TEST-RUNDE-"+crypto.randomBytes(4).toString("hex"),status:scenario==="registration"?"open":scenario==="result"?"completed":scenario,factor:1.8,joinEndsAt:end,controlEndsAt:end,participants:sample,mode:scenario==="result"?(allCaught?"allCaught":"individual"):null},config:{minBet:50,maxBet:500,command:`${names().commands.start} BETRAG`,gameName:names().name,pointsName:names().pointsName,resultDisplaySeconds:cfg.resultDisplaySeconds,statusDisplay:cfg.overlayStatusDisplay,layout:overlayLayout(cfg)},test:true};
     broadcast(); if(overlayTestTimer) clearTimeout(overlayTestTimer); overlayTestTimer=setTimeout(()=>{overlayTestState=null;broadcast();},testMs); overlayTestTimer.unref?.(); return overlayTestState;
   }
 

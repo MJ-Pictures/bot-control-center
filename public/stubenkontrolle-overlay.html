@@ -6,10 +6,13 @@
 *{box-sizing:border-box}
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;font-family:"Akzidenz Grotesk Bold","Arial Black",Arial,sans-serif;font-weight:700;color:var(--gold)}
 .stage{position:relative;width:1920px;height:1080px;transform-origin:top left;overflow:hidden}
-.panel{position:absolute;z-index:3;left:80px;bottom:60px;width:1180px;padding:16px 26px 14px;background:linear-gradient(135deg,rgba(15,20,26,.94),rgba(28,35,44,.9));border:2px solid rgba(250,183,10,.8);clip-path:polygon(0 0,97% 0,100% 22%,100% 100%,3% 100%,0 78%);overflow:hidden;opacity:0;transform:translateY(30px);transition:opacity .35s,transform .35s,bottom .35s}
+.dock{position:absolute;z-index:3;left:0;bottom:60px;width:1180px;transition:top .35s,bottom .35s}
+.panel{position:relative;width:100%;padding:16px 26px 14px;background:linear-gradient(135deg,rgba(15,20,26,.94),rgba(28,35,44,.9));border:2px solid rgba(250,183,10,.8);clip-path:polygon(0 0,97% 0,100% 22%,100% 100%,3% 100%,0 78%);overflow:hidden;opacity:0;transform:translateY(30px);transition:opacity .35s,transform .35s}
 .panel.show{opacity:1;transform:none}
-.stage.reg .panel{bottom:140px}
-.stage.reg.crowd .panel{bottom:170px}
+/* 9.28.1: Lage, Größe und Anheben während der Anmeldung setzt das Skript (layoutPanel): Anker, Rand und Skalierung per transform auf dem Rahmen (#dock). */
+/* Detailstufe „kompakt“: nur Titel, Kopfzeile und Ergebnistext; Karten, Seitenanzeige und Zusatzzeile entfallen (die Männchen zeigen die Namen). */
+.stage.compact .people,.stage.compact .pageinfo,.stage.compact #resultTitle{display:none}
+.stage.compact #phrase{-webkit-line-clamp:3}
 .accent{color:var(--gold)}
 h1{font-size:30px;margin:0 0 4px;letter-spacing:.01em}
 .panel>*{position:relative;z-index:1}
@@ -55,6 +58,7 @@ h1{font-size:30px;margin:0 0 4px;letter-spacing:.01em}
   <div id="verdictSvg"></div>
   <img id="verdictImg" alt="">
   <div id="conn" class="connection hidden"></div>
+  <div id="dock" class="dock">
   <div id="panel" class="panel">
     <img class="polygon" src="/stubenkontrolle/polygon.svg" alt="">
     <h1 id="title">Stubenkontrolle</h1>
@@ -63,6 +67,7 @@ h1{font-size:30px;margin:0 0 4px;letter-spacing:.01em}
     <div id="phrase" class="result-title accent"></div>
     <div id="people" class="people"></div>
     <div id="pageinfo" class="pageinfo"></div>
+  </div>
   </div>
   <div id="walkers"></div>
 </div>

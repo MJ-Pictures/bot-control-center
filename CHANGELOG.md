@@ -2,6 +2,17 @@
 
 Dieses Dokument wird aus `public/changelog.json` erzeugt, dem Protokoll, das auch die Oberfläche anzeigt. Die neueste Version steht oben.
 
+## 9.28.1 – 2026-11-25
+
+**Punktespiel-Overlay: Lage, Größe und Detailstufe einstellbar**
+
+- Das Panel des Punktespiel-Overlays (Anmeldung, Kontrolle, Ergebnis) lässt sich jetzt verschieben und verkleinern: Lage in einem von neun Feldern (Standard: unten mittig), Größe in Prozent (Standard 80, bisherige Breite = 100) und Abstand zum Rand. Einstellbar unter Stubenkontrolle → Spielregeln („Overlay: …“).
+- Die Männchen der Anmeldung laufen weiter unten am Bildrand. Steht das Panel unten, lässt es dafür einen festen Streifen von 120 px frei; das Panel bleibt in allen Phasen (Anmeldung, Kontrolle, Ergebnis) an derselben Stelle und springt nicht mehr.
+- Die Kontrollfigur ist kleiner und sitzt am Panel (bei einer Lage oben darunter, bei einer Lage rechts am linken Panelende); sie wächst und schrumpft mit der Panelgröße.
+- Neue Einstellung „Detailstufe“: „Ausführlich“ zeigt alles wie bisher (Karten, Seitenanzeige, Zusatzzeile), „Kompakt“ nur Titel, Kopfzeile und Ergebnistext. Standard ist „Ausführlich“.
+- Zum Ausprobieren lassen sich die Werte in der Overlay-Adresse überschreiben, z. B. …#key=…&scale=70&anchor=bottom-center&detail=compact.
+- Nach dem Update in OBS bzw. Moblin die Browserquelle einmal neu laden. Wer das Panel bisher in OBS verkleinert oder verschoben hat, setzt die Quelle auf 100 % zurück und stellt Lage und Größe im Control Center ein.
+
 ## 9.28.0 – 2026-11-25
 
 **Clips: Chat-Befehl „!clip“**

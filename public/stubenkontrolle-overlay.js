@@ -18,6 +18,45 @@ const $=id=>document.getElementById(id);
 function scale(){const s=Math.min(innerWidth/1920,innerHeight/1080);$("stage").style.transform=`scale(${s})`;}
 addEventListener("resize",scale);scale();
 
+/* ===== Lage und Größe des Panels (9.28.1) =====
+   Einstellung im Control Center (state.config.layout); zum Ausprobieren überschreibbar per Adresse:
+   &scale=40..100 &anchor=bottom-center &margin=0..300 &detail=full|compact (Fragment oder Query). */
+const ANCHORS=["top-left","top-center","top-right","middle-left","middle-center","middle-right","bottom-left","bottom-center","bottom-right"];
+function clampNum(v,min,max,fallback){const n=Number(v);return Number.isFinite(n)?Math.min(max,Math.max(min,Math.round(n))):fallback}
+function layoutSettings(){
+  const c=state?.config?.layout||{};
+  const a=opt("anchor"),d=opt("detail");
+  return {
+    scale:clampNum(opt("scale")??c.scale,40,100,80)/100,
+    anchor:ANCHORS.includes(a)?a:(ANCHORS.includes(c.anchor)?c.anchor:"bottom-center"),
+    margin:clampNum(opt("margin")??c.margin,0,300,60),
+    detail:d==="full"||d==="compact"?d:(c.detail==="compact"?"compact":"full")
+  };
+}
+/* Platz für die Männchen: Sie laufen unten am Bildrand (Anmeldung). Bei Anker unten steht das Panel in JEDER Phase um diesen Streifen höher,
+   damit es nie springt und die Männchen frei bleiben (ab 25 Personen zwei Bahnen, dann reicht der Streifen ebenfalls). */
+const WALKER_SPACE=120;
+/* Geometrie des Panels im 1920×1080-Raster (ohne Animation), damit die Kontrollfigur es treffen kann. */
+function panelGeometry(){
+  const L=layoutSettings(),pn=$("dock"),[v,h]=L.anchor.split("-");
+  const lift=v==="bottom"?WALKER_SPACE:0;
+  const sw=pn.offsetWidth*L.scale,sh=pn.offsetHeight*L.scale;
+  const x0=h==="left"?L.margin:h==="right"?1920-L.margin-sw:(1920-sw)/2;
+  const y0=v==="top"?L.margin:v==="bottom"?1080-L.margin-lift-sh:(1080-sh)/2;
+  return {L,v,h,lift,x0,y0,sw,sh};
+}
+function layoutPanel(){
+  const L=layoutSettings(),pn=$("dock"),[v,h]=L.anchor.split("-"),st=$("stage");
+  const lift=v==="bottom"?WALKER_SPACE:0;
+  pn.style.left=h==="left"?L.margin+"px":h==="center"?"50%":"auto";
+  pn.style.right=h==="right"?L.margin+"px":"auto";
+  pn.style.top=v==="top"?L.margin+"px":v==="middle"?"50%":"auto";
+  pn.style.bottom=v==="bottom"?(L.margin+lift)+"px":"auto";
+  pn.style.transformOrigin=`${h==="left"?"0%":h==="right"?"100%":"50%"} ${v==="top"?"0%":v==="bottom"?"100%":"50%"}`;
+  pn.style.transform=`translate(${h==="center"?"-50%":"0"},${v==="middle"?"-50%":"0"}) scale(${L.scale})`;
+  st.classList.toggle("compact",L.detail==="compact");
+}
+
 /* ===== Statusanzeige „WSS: …“ (Einstellung im Control Center: nur bei Problemen | immer | nie) ===== */
 let statusMode=(()=>{try{return localStorage.getItem("stubeStatusMode")||"problem"}catch{return "problem"}})();
 if(opt("status")==="1")statusMode="always";
@@ -63,6 +102,7 @@ function render(){
   $("stage").classList.toggle("reg",phase==="registration");
   $("stage").classList.toggle("crowd",phase==="registration"&&(r?.participants?.length||0)>24);
   const show=phase!=="idle";
+  layoutPanel();
   $("panel").classList.toggle("show",show);
   syncWalkers(phase==="registration"?(r?.participants||[]):[]);
   if(!show){syncVerdict(phase,r);return}
@@ -103,7 +143,7 @@ function escapeHtml(s){return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;",
 const verdict=$("verdict"),verdictSvg=$("verdictSvg"),verdictImg=$("verdictImg");
 // 9.14.0: Figur kommt aus der Installation: "upload" = hochgeladenes Bild, "legacy" = bisherige Animation, "builtin" = eingebaute neutrale Standardfigur (Lehrer), sonst keine. Bis zur Antwort keine.
 let figureMode="pending",figureUrl=null;
-fetch("/api/branding",{cache:"no-store"}).then(r=>r.json()).then(b=>{const f=b&&b.images&&b.images.gameFigure;figureMode=f&&f.mode?f.mode:"none";figureUrl=f&&f.url||null}).catch(()=>{figureMode="none"});
+fetch("/api/branding",{cache:"no-store"}).then(r=>r.json()).then(b=>{const f=b&&b.images&&b.images.gameFigure;figureMode=f&&f.mode?f.mode:"none";figureUrl=f&&f.url||null;if(state)render()}).catch(()=>{figureMode="none"});
 const CLIPS={control:{file:"kontrolle",loop:true},passed:{file:"bestanden",loop:false},caught:{file:"durchgefallen",loop:false}};
 let spiessKey=null,svgRaf=null;
 function verdictKind(r){
@@ -112,12 +152,19 @@ function verdictKind(r){
   return ps.some(p=>p.outcome==="passed")?"passed":"caught";
 }
 function placeVerdict(){
-  const panelH=$("panel").offsetHeight||300;
-  const panelBottom=parseFloat(getComputedStyle($("panel")).bottom)||60;
-  const bottom=panelBottom+panelH-40;              // 40 px verschwinden hinter dem Panel
-  const h=Math.max(240,Math.min(400,1080-bottom-20));
-  const w=Math.round(h*0.75), pn=$("panel"), left=pn.offsetLeft+pn.offsetWidth-Math.round(w*0.45); // steht am rechten Ende des Panels
-  for(const el of [verdict,verdictSvg,verdictImg]){el.style.bottom=bottom+"px";el.style.height=h+"px";el.style.width=w+"px";el.style.left=left+"px";el.style.right="auto"}
+  // 9.28.1: Figur steht am Panel (kleiner als zuvor, wächst mit der Panelgröße). Oben auf dem Panel; bei Anker oben darunter.
+  // Am rechten Rand des Bildes steht sie am linken Panelende, sonst am rechten. 40 px verschwinden hinter dem Panel.
+  const g=panelGeometry(),over=40*g.L.scale,figH=Math.max(200,Math.min(400,Math.round(340*g.L.scale)));
+  let h,top=null,bottom=null;
+  if(g.v==="top"){top=g.y0+g.sh-over;h=Math.max(160,Math.min(figH,1080-top-20))}
+  else{bottom=1080-g.y0-over;h=Math.max(160,Math.min(figH,1080-bottom-20))}
+  const w=Math.round(h*0.75);
+  let left=g.h==="right"?g.x0-Math.round(w*0.55):g.x0+g.sw-Math.round(w*0.45);
+  left=Math.max(0,Math.min(1920-w,left));
+  for(const el of [verdict,verdictSvg,verdictImg]){
+    el.style.height=h+"px";el.style.width=w+"px";el.style.left=Math.round(left)+"px";el.style.right="auto";
+    el.style.bottom=bottom===null?"auto":Math.round(bottom)+"px";el.style.top=top===null?"auto":Math.round(top)+"px";
+  }
 }
 function stopSvg(){if(svgRaf)cancelAnimationFrame(svgRaf);svgRaf=null;verdictSvg.classList.remove("on","hold");verdictSvg.innerHTML=""}
 function hideSpiess(){spiessKey=null;verdictImg.classList.remove("on","hold");verdict.classList.remove("on","hold");try{verdict.pause()}catch{}stopSvg()}
