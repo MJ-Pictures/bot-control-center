@@ -29,8 +29,8 @@ test("Abgleich gesperrter Begriffe: Ergebnis wird ausdrücklich übernommen (kei
   assert.match(facade,/return \{blockedWords:plain\(n\.blockedWords\|\|\[\]\)\};/);
 });
 test("Stammdaten der Konten: Weboberfläche und Twitch-Laufzeit nutzen dasselbe Modul",()=>{
-  assert.match(web,/const twitchAccounts = \(\) => publicTwitchAccounts\(CHANNEL_LOGIN, botRosterNow\(\), \{subathon:moduleOn\("subathon"\),redemptions:moduleOn\("chatOverlay"\)&&chatOverlayRedeemWanted\(\)\}\);/);
-  assert.match(rt,/for \(const d of twitchAccountDefs\(CHANNEL_LOGIN, roster, \{subathon: subathonOn, redemptions: redeemOn\}\)\)/);
+  assert.match(web,/const twitchAccounts = \(\) => publicTwitchAccounts\(CHANNEL_LOGIN, botRosterNow\(\), \{subathon:moduleOn\("subathon"\),redemptions:moduleOn\("chatOverlay"\)&&chatOverlayRedeemWanted\(\),clipCommand:moduleOn\("clips"\)&&clipCommandWanted\(\)\}\);/);
+  assert.match(rt,/for \(const d of twitchAccountDefs\(CHANNEL_LOGIN, roster, \{subathon: subathonOn, redemptions: redeemOn, clipCommand: clipCmdOn\}\)\)/);
   assert.doesNotMatch(web,/twitchRuntime\.accounts\(|twitchRuntime\.account\(/);
 });
 test("Wortfilter-Änderung: eigener Stand sofort, Twitch-Laufzeit wird benachrichtigt, Fehler dabei blockiert nicht",()=>{

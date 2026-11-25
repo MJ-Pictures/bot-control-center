@@ -10,12 +10,14 @@ const MAIN_BOT_SCOPES = ["user:read:chat","user:write:chat","user:bot","moderato
 const SUBATHON_CHANNEL_SCOPES = ["channel:read:subscriptions","bits:read"];
 // 9.27.2: Kanalpunkte-Karten im Chat-Overlay (Einlösungen lesen). Nur angefordert, wenn die Karte eingeschaltet ist.
 const REDEMPTION_CHANNEL_SCOPES = ["channel:read:redemptions"];
+// 9.28.0: Chat-Befehl „!clip“ erstellt den Clip über das Kanal-Konto (Recht clips:edit). Nur angefordert, wenn der Befehl eingeschaltet ist.
+const CLIP_COMMAND_CHANNEL_SCOPES = require("./clip-command").CLIP_CHANNEL_SCOPES;
 function twitchAccountDefs(channelLogin, roster, opts){
   const botRoster = require("./bot-roster");
-  return botRoster.accountDefsFromRoster(roster || botRoster.freshRoster(), MAIN_BOT_SCOPES, channelLogin, [...(opts?.subathon === true ? SUBATHON_CHANNEL_SCOPES : []), ...(opts?.redemptions === true ? REDEMPTION_CHANNEL_SCOPES : [])]);
+  return botRoster.accountDefsFromRoster(roster || botRoster.freshRoster(), MAIN_BOT_SCOPES, channelLogin, [...(opts?.subathon === true ? SUBATHON_CHANNEL_SCOPES : []), ...(opts?.redemptions === true ? REDEMPTION_CHANNEL_SCOPES : []), ...(opts?.clipCommand === true ? CLIP_COMMAND_CHANNEL_SCOPES : [])]);
 }
 // Sicht für die Weboberfläche: ohne tokenKey.
 function publicTwitchAccounts(channelLogin, roster, opts){
   return twitchAccountDefs(channelLogin, roster, opts).map(({tokenKey,...rest})=>({...rest,requiredScopes:[...rest.requiredScopes]}));
 }
-module.exports={twitchAccountDefs,publicTwitchAccounts,MAIN_BOT_SCOPES,SUBATHON_CHANNEL_SCOPES,REDEMPTION_CHANNEL_SCOPES};
+module.exports={twitchAccountDefs,publicTwitchAccounts,MAIN_BOT_SCOPES,SUBATHON_CHANNEL_SCOPES,REDEMPTION_CHANNEL_SCOPES,CLIP_COMMAND_CHANNEL_SCOPES};

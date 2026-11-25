@@ -366,6 +366,7 @@ function normalizeClipSettings(settings) {
   if (typeof c.message !== "string" || !c.message.trim()) {
     c.message = "🎬 Neuer Clip: „{title}“ – erstellt von @{creator} {url}";
   }
+  require("/shared/clip-command").normalizeClipCommandSettings(c); // 9.28.0: Chat-Befehl „!clip“
 
   return c;
 }

@@ -3395,6 +3395,12 @@ async function renderClips(){
   const root=$("clips");
   if(!root) return;
 
+  // 9.28.0: Chat-Befehl „!clip“ (Standardwerte wie auf dem Server, falls die Einstellungen noch keine kennen)
+  const CLIP_CMD_ALLOWED=[["everyone","Alle Zuschauer"],["subscribers","Abonnenten, VIPs, Moderatoren"],["vips","VIPs und Moderatoren"],["moderators","Moderatoren"],["broadcaster","Nur Kanalinhaber"]];
+  const CLIP_CMD_DEFAULTS={cmdEnabled:false,cmdName:"!clip",cmdAllowed:"everyone",cmdCooldownUser:60,cmdCooldownGlobal:15,cmdDuration:30,cmdBot:"",cmdDiscord:true,cmdMessage:"🎬 @{user} hat einen Clip erstellt: {url}",cmdOfflineMessage:"@{user} Clips gehen nur im Livestream – der Kanal ist gerade nicht live.",cmdFailMessage:"@{user} Der Clip konnte leider nicht erstellt werden. Bitte später noch einmal versuchen."};
+  const cmdVal=k=>c[k]===undefined||c[k]===null?CLIP_CMD_DEFAULTS[k]:c[k];
+  const cmdBotSel=botList.some(b=>b.key===c.cmdBot)?c.cmdBot:(botList.some(b=>b.key===c.bot)?c.bot:botDefault("clips"));
+
   root.innerHTML=`
     <div class="title">
       <div>
@@ -3442,6 +3448,76 @@ async function renderClips(){
       </div>
     </div>
 
+    <div class="card" id="clipCmdCard">
+      <div class="title">
+        <div>
+          <h3>Clip-Befehl im Chat</h3>
+          <p class="hint">Zuschauer erstellen mit einem Befehl einen Twitch-Clip. Der gewählte Bot schreibt den Link in den Chat, auf Wunsch wird der Clip auch in Discord gemeldet. Twitch erlaubt Clips nur, solange der Kanal live ist.</p>
+        </div>
+      </div>
+      <div id="clipCmdScope" class="hint"></div>
+      <div class="clips-grid">
+        <label class="moderation-check">
+          <input id="clipCmdEnabled" type="checkbox" ${cmdVal("cmdEnabled")?"checked":""}>
+          Clip-Befehl aktiv
+        </label>
+
+        <div>
+          <span class="fieldlabel">Befehl</span>
+          <input id="clipCmdName" type="text" maxlength="30" value="${esc(cmdVal("cmdName"))}">
+          <p class="hint">Ein gleichnamiger eigener Command wird vom Clip-Befehl überdeckt.</p>
+        </div>
+
+        <div>
+          <span class="fieldlabel">Wer darf den Befehl nutzen?</span>
+          <select id="clipCmdAllowed">${CLIP_CMD_ALLOWED.map(([k,l])=>`<option value="${k}" ${cmdVal("cmdAllowed")===k?"selected":""}>${esc(l)}</option>`).join("")}</select>
+        </div>
+
+        <div>
+          <span class="fieldlabel">Antwort schreibt Bot</span>
+          <select id="clipCmdBot">${botOptionsHtml().replace(`value="${cmdBotSel}"`,m=>m+" selected")}</select>
+        </div>
+
+        <div>
+          <span class="fieldlabel">Clip-Länge</span>
+          <div class="input-suffix"><input id="clipCmdDuration" type="number" min="5" max="60" value="${Number(cmdVal("cmdDuration"))}"><span>Sek.</span></div>
+        </div>
+
+        <div>
+          <span class="fieldlabel">Pause pro Person</span>
+          <div class="input-suffix"><input id="clipCmdCdUser" type="number" min="0" max="3600" value="${Number(cmdVal("cmdCooldownUser"))}"><span>Sek.</span></div>
+          <p class="hint">Moderatoren und Kanalinhaber sind davon ausgenommen.</p>
+        </div>
+
+        <div>
+          <span class="fieldlabel">Pause für alle</span>
+          <div class="input-suffix"><input id="clipCmdCdGlobal" type="number" min="0" max="600" value="${Number(cmdVal("cmdCooldownGlobal"))}"><span>Sek.</span></div>
+        </div>
+
+        <label class="moderation-check">
+          <input id="clipCmdDiscord" type="checkbox" ${cmdVal("cmdDiscord")?"checked":""}>
+          Clip auch in Discord melden
+        </label>
+
+        <div class="clips-message">
+          <span class="fieldlabel">Chat-Nachricht bei Erfolg</span>
+          <textarea id="clipCmdMessage">${esc(cmdVal("cmdMessage"))}</textarea>
+          <p class="hint">Platzhalter: <code>{user}</code> <code>{url}</code> <code>{title}</code> <code>{clip_id}</code> <code>{duration}</code></p>
+        </div>
+
+        <div class="clips-message">
+          <span class="fieldlabel">Nachricht, wenn der Kanal nicht live ist</span>
+          <textarea id="clipCmdOffline">${esc(cmdVal("cmdOfflineMessage"))}</textarea>
+        </div>
+
+        <div class="clips-message">
+          <span class="fieldlabel">Nachricht, wenn der Clip nicht erstellt werden konnte</span>
+          <textarea id="clipCmdFail">${esc(cmdVal("cmdFailMessage"))}</textarea>
+          <p class="hint">Bei beiden: <code>{user}</code> nennt die Person, die den Befehl genutzt hat.</p>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="title"><h3>Status</h3><span id="clipMonitorState" class="hint">Lade …</span></div>
       <div id="clipStatusBody" class="clips-status"></div>
@@ -3455,10 +3531,21 @@ async function renderClips(){
     c.onlyLive=$("clipOnlyLive").checked;
     c.showCreator=$("clipShowCreator").checked;
     c.message=$("clipMessage").value;
+    c.cmdEnabled=$("clipCmdEnabled").checked;
+    c.cmdName=$("clipCmdName").value.trim()||CLIP_CMD_DEFAULTS.cmdName;
+    c.cmdAllowed=$("clipCmdAllowed").value;
+    c.cmdBot=$("clipCmdBot")?.value||cmdBotSel;
+    c.cmdDuration=Math.min(60,Math.max(5,Math.round(Number($("clipCmdDuration").value||30))));
+    c.cmdCooldownUser=Math.min(3600,Math.max(0,Math.round(Number($("clipCmdCdUser").value||0))));
+    c.cmdCooldownGlobal=Math.min(600,Math.max(0,Math.round(Number($("clipCmdCdGlobal").value||0))));
+    c.cmdDiscord=$("clipCmdDiscord").checked;
+    c.cmdMessage=$("clipCmdMessage").value;
+    c.cmdOfflineMessage=$("clipCmdOffline").value;
+    c.cmdFailMessage=$("clipCmdFail").value;
     mark();
   };
 
-  ["clipEnabled","clipBot","clipInterval","clipOnlyLive","clipShowCreator","clipMessage"].forEach(id=>{
+  ["clipEnabled","clipBot","clipInterval","clipOnlyLive","clipShowCreator","clipMessage","clipCmdEnabled","clipCmdName","clipCmdAllowed","clipCmdBot","clipCmdDuration","clipCmdCdUser","clipCmdCdGlobal","clipCmdDiscord","clipCmdMessage","clipCmdOffline","clipCmdFail"].forEach(id=>{
     const el=$(id);
     if(!el) return;
     el.addEventListener(el.type==="checkbox"||el.tagName==="SELECT"?"change":"input",sync);
@@ -3472,6 +3559,17 @@ async function renderClips(){
 
       $("clipMonitorState").textContent=j.config?.enabled ? "Automatik AN" : "Automatik AUS";
 
+      // 9.28.0: Hat das Kanal-Konto das Recht clips:edit? (nur relevant, wenn der Chat-Befehl eingeschaltet ist)
+      const cs=$("clipCmdScope");
+      if(cs){
+        const ca=j.command?.channelAccount;
+        if(!j.command?.enabled) cs.textContent="";
+        else if(!ca) cs.innerHTML=`<div class="clip-error">⚠️ Verbindung des Kanal-Kontos konnte nicht geprüft werden.</div>`;
+        else if(!ca.connected) cs.innerHTML=`<div class="clip-error">⚠️ Das Kanal-Konto „${esc(ca.displayName)}“ ist nicht mit Twitch verbunden. Bitte unter Administration → Twitch-Verbindungen verbinden (Recht <code>clips:edit</code>).</div>`;
+        else if(!ca.hasScope) cs.innerHTML=`<div class="clip-error">⚠️ Dem Kanal-Konto „${esc(ca.displayName)}“ fehlt das Twitch-Recht <code>clips:edit</code>. Bitte unter Administration → Twitch-Verbindungen einmal neu verbinden.</div>`;
+        else cs.innerHTML=`<span class="hint">✅ Kanal-Konto „${esc(ca.displayName)}“ ist verbunden und darf Clips erstellen.</span>`;
+      }
+
       const last=j.state?.lastShared;
       $("clipStatusBody").innerHTML=`
         <div class="clip-status-item"><strong>${j.state?.initialized?"Ja":"Nein"}</strong><span>Initialisiert</span></div>
@@ -3480,7 +3578,7 @@ async function renderClips(){
         <div class="clip-status-wide">
           <span class="fieldlabel">Zuletzt geteilt</span>
           ${last
-            ? `<div><strong>${esc(last.title||"Clip")}</strong> · @${esc(last.creator||"unbekannt")}<br><span class="hint">${esc(last.url||"")}</span>${Number.isFinite(Number(last.detectedAfterSeconds))&&last.detectedAfterSeconds!==null?`<br><span class="hint">Twitch lieferte den Clip ${Number(last.detectedAfterSeconds)>=90?Math.round(Number(last.detectedAfterSeconds)/60)+" Min.":Number(last.detectedAfterSeconds)+" Sek."} nach dem Erstellen.</span>`:""}</div>`
+            ? `<div><strong>${esc(last.title||"Clip")}</strong> · @${esc(last.creator||"unbekannt")}${last.source==="command"?` <span class="hint">(per Chat-Befehl)</span>`:""}<br><span class="hint">${esc(last.url||"")}</span>${Number.isFinite(Number(last.detectedAfterSeconds))&&last.detectedAfterSeconds!==null?`<br><span class="hint">Twitch lieferte den Clip ${Number(last.detectedAfterSeconds)>=90?Math.round(Number(last.detectedAfterSeconds)/60)+" Min.":Number(last.detectedAfterSeconds)+" Sek."} nach dem Erstellen.</span>`:""}</div>`
             : `<span class="hint">Noch kein Clip durch den Clip-Bot geteilt.</span>`}
         </div>
         ${j.state?.lastError?`<div class="clip-error">⚠️ ${esc(j.state.lastError)}</div>`:""}
@@ -7039,6 +7137,7 @@ function renderHelp(){
         <h3>Moderation / Chat-Filter</h3><p>Aktive Filter löschen die auslösende Chatnachricht über den Haupt-Bot. Ein Timeout kann pro Filter optional zugeschaltet werden. Beim Sonderzeichen-Filter zählen Punkt und Komma nicht. Beim Großbuchstaben-Filter zählt die längste zusammenhängende Folge von Großbuchstaben. Moderatoren, der Kanalinhaber und Whitelist-User können global ausgenommen werden.</p>
         <h3>AutoMod Auto-Allow für Clips</h3><p>Wenn Twitch eine Clip-Nachricht des Clip-Bots wegen des Linkfilters zurückhält, wird sie automatisch durch den Haupt-Bot freigegeben. Andere gehaltene AutoMod-Nachrichten bleiben unangetastet.</p>
         <h3>Clips</h3><p>Das Clip-Sharing fragt Twitch in einem einstellbaren Intervall nach neuen Clips des Kanals ab. Neue Clip-IDs werden dauerhaft gespeichert und durch den Clip-Bot gepostet. Beim ersten Lauf wird der vorhandene Bestand nur als bekannt markiert, damit keine alten Clips in den Chat gesendet werden.</p>
+        <h3>Clip-Befehl</h3><p>Mit dem Clip-Befehl (Standard <code>!clip</code>) erstellt der Bot auf Zuruf einen Clip des laufenden Streams. Wer ihn nutzen darf, die Pausen, die Clip-Länge und der antwortende Bot sind einstellbar. Der Clip wird über das Kanal-Konto erstellt; dafür braucht es das Twitch-Recht <code>clips:edit</code> (einmal neu verbinden). Der Link kommt meist nach wenigen Sekunden in den Chat.</p>
         <h3>Gewinnspiel</h3><p>Es gibt Keyword- und Random-Gewinnspiele. Mods, Owner/Broadcaster und VIPs sind getrennte Teilnahmeoptionen. Der Teilnehmerstand wird während eines laufenden Gewinnspiels automatisch aktualisiert; mehrere unterschiedliche Gewinner können nacheinander gezogen werden.</p>
         <h3>Auto-Replies</h3><p>Auto-Replies können mehrere Auslöser haben. Pro Eintrag lassen sich Name, Abgleich, Bot, Cooldown und Antwort festlegen.</p>
         <h3>Statistiken</h3><p>Für Commands und Auto-Replies werden Auslösungen ab Version 4.9.0 gezählt. Angezeigt werden Werte für heute, den aktuellen Stream, gesamt sowie die letzte Auslösung. Die Statistik wird unabhängig von Änderungen an Antworttexten weitergeführt, solange die jeweilige Eintrags-ID erhalten bleibt.</p>

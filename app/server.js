@@ -495,7 +495,9 @@ const {publicTwitchAccounts} = require("/shared/twitch-accounts");
 // 9.15.0: Konten und Bots kommen aus der Bot-Liste der Installation (Profil & Branding), nicht mehr fest aus dem Code.
 const botRoster = require("/shared/bot-roster");
 const botRosterNow = () => installationProfile().bots;
-const twitchAccounts = () => publicTwitchAccounts(CHANNEL_LOGIN, botRosterNow(), {subathon:moduleOn("subathon"),redemptions:moduleOn("chatOverlay")&&chatOverlayRedeemWanted()});
+const twitchAccounts = () => publicTwitchAccounts(CHANNEL_LOGIN, botRosterNow(), {subathon:moduleOn("subathon"),redemptions:moduleOn("chatOverlay")&&chatOverlayRedeemWanted(),clipCommand:moduleOn("clips")&&clipCommandWanted()});
+// 9.28.0: Chat-Befehl „!clip“ eingeschaltet? Dann braucht das Kanal-Konto das Recht clips:edit.
+function clipCommandWanted(){try{return readJson(FILES.settings,DEFAULT_SETTINGS)?.clipSharing?.cmdEnabled===true;}catch{return false;}}
 // Kanal-Login: Umgebung (TWITCH_CHANNEL_LOGIN) vor Profil. Er bestimmt auch, wer Besitzer ist.
 const channelLoginNow = () => CHANNEL_LOGIN || botRosterNow().channel.login || "";
 // Für Vergleiche: ist kein Kanal-Login gesetzt, passt kein Benutzer (leer darf nie Besitzer ergeben).
@@ -4293,9 +4295,20 @@ const server = http.createServer(async (req, res) => {
       const settings = readJson(FILES.settings, DEFAULT_SETTINGS);
       const cfg = normalizeClipSettings(settings);
       const state = readClipState();
+      // 9.28.0: Ist das Kanal-Konto verbunden und hat es das Recht clips:edit (nötig für den Chat-Befehl)?
+      let command=null;
+      try{
+        const ch=botRosterNow().channel,conn=await twitchRuntime.connectionStatus(ch.key).catch(()=>null);
+        command={
+          enabled:cfg.cmdEnabled===true,
+          requiredScopes:["clips:edit"],
+          channelAccount:{key:ch.key,displayName:ch.displayName||ch.login||ch.key,login:ch.login||null,connected:conn?.connected===true,authorizedLogin:conn?.authorizedLogin||null,hasScope:Array.isArray(conn?.scopes)&&conn.scopes.includes("clips:edit")}
+        };
+      }catch{command={enabled:cfg.cmdEnabled===true,requiredScopes:["clips:edit"],channelAccount:null};}
 
       return json(res,200,{
         config:cfg,
+        command,
         state:{
           initialized:!!state.initialized,
           knownCount:Number(state.knownCount ?? Object.keys(state.seen || {}).length),

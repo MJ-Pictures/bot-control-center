@@ -2,6 +2,18 @@
 
 Dieses Dokument wird aus `public/changelog.json` erzeugt, dem Protokoll, das auch die Oberfläche anzeigt. Die neueste Version steht oben.
 
+## 9.28.0 – 2026-11-25
+
+**Clips: Chat-Befehl „!clip“**
+
+- Neu unter Twitch → Clips: Der Chat-Befehl „!clip“ (Name einstellbar) erstellt auf Zuruf einen Twitch-Clip des laufenden Streams. Ein einstellbarer Bot schreibt den Link mit dem Namen der Person in den Chat; der Link kommt meist nach wenigen Sekunden, deutlich früher als über die automatische Clip-Erkennung.
+- Einstellbar: wer den Befehl nutzen darf (alle, Abonnenten, VIPs, Moderatoren, nur Kanalinhaber), Pause pro Person und für alle, Clip-Länge (5 bis 60 Sekunden, Standard 30), der antwortende Bot sowie die Texte für Erfolg, „Kanal nicht live“ und Fehler.
+- Der Clip wird auf Wunsch (Standard: ja) auch in Discord gemeldet, mit Vorschaubild. Der Clip-Monitor meldet denselben Clip nicht noch einmal.
+- Der Clip wird über das Kanal-Konto erstellt. Dafür braucht es das Twitch-Recht „clips:edit“; es wird nur angefordert, wenn der Befehl eingeschaltet ist. Danach das Kanal-Konto einmal unter Administration → Twitch-Verbindungen neu verbinden. Die Clips-Seite zeigt, ob das Recht vorhanden ist.
+- AutoMod: Clip-Links des antwortenden Bots werden wie die des Clip-Sharing-Bots automatisch freigegeben, falls Twitch sie wegen des Linkfilters zurückhält.
+- Das Ausschalten des Moduls „Clips“ schaltet auch den Befehl ab. Der Befehl ist nach dem Update zunächst aus.
+- Keine Änderung an der Datenbank oder an der compose.yaml.
+
 ## 9.27.5 – 2026-11-24
 
 **Chat-Overlay: Korrektur der Overlay-Seite aus 9.27.4**

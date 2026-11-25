@@ -52,16 +52,24 @@ function redeemCardsWanted() {
     return readJson(FILES.chatOverlay, {})?.redeemCards === true;
   } catch { return false; }
 }
+// 9.28.0: Chat-Befehl „!clip“ an? (Modul „Clips“ an und Befehl eingeschaltet) → Kanal-Konto braucht das Recht clips:edit
+function clipCommandWanted() {
+  try {
+    const st = readJson(FILES.settings, DEFAULT_SETTINGS);
+    return isModuleEnabled(normalizeModuleSettings(prepareSettings(st)), "clips") && st?.clipSharing?.cmdEnabled === true;
+  } catch { return false; }
+}
 function syncAccounts(force) {
   let roster;
   try { roster = rosterFromSettings(); } catch { return false; }
   const subathonOn = subathonModuleOn();
   const redeemOn = redeemCardsWanted();
-  const sig = JSON.stringify(roster) + "|" + CHANNEL_LOGIN + "|subathon:" + subathonOn + "|redeem:" + redeemOn;
+  const clipCmdOn = clipCommandWanted();
+  const sig = JSON.stringify(roster) + "|" + CHANNEL_LOGIN + "|subathon:" + subathonOn + "|redeem:" + redeemOn + "|clipcmd:" + clipCmdOn;
   if (!force && sig === rosterSignature) return false;
   rosterSignature = sig; currentRoster = roster;
   for (const k of Object.keys(accountMap)) delete accountMap[k];
-  for (const d of twitchAccountDefs(CHANNEL_LOGIN, roster, {subathon: subathonOn, redemptions: redeemOn})) {
+  for (const d of twitchAccountDefs(CHANNEL_LOGIN, roster, {subathon: subathonOn, redemptions: redeemOn, clipCommand: clipCmdOn})) {
     accountMap[d.key] = {tokenFile: tokenFileFor(roster, d.tokenKey), login: d.login, displayName: d.displayName, type: d.type, purpose: d.purpose, requiredScopes: [...d.requiredScopes]};
   }
   return true;
@@ -1566,6 +1574,12 @@ async function handleChat(ev) {
 
   const firstWord = lower.split(/\s+/)[0];
 
+  // 9.28.0: „!clip“ erstellt einen Clip (Modul „Clips“). Vor den eigenen Commands, damit der Name nicht doppelt belegt wird.
+  if (isModuleEnabled(settings, "clips")) {
+    const cc = clipCommand.handle(ev, normalizeClipSettings(settings), firstWord);
+    if (cc.handled) { cc.done.catch(e => console.error("⚠️ Clip-Befehl:", e?.message || e)); return; }
+  }
+
   if (await twitchEvents.dispatchChatCommand(ev, msg)) return;
   if (await handleCommunityCommand(ev, settings, firstWord)) return;
 
@@ -1665,9 +1679,12 @@ function isTrustedClipBotMessage(ev){
   const login=String(ev?.user_login||"").toLowerCase();
 
   // Primär über die stabile Twitch User ID prüfen; Login nur als Fallback.
-  const trustedSender =
-    (ids[clipBotKey()] && senderId===String(ids[clipBotKey()])) ||
-    (!!accountMap[clipBotKey()]?.login && login===String(accountMap[clipBotKey()].login).toLowerCase());
+  // 9.28.0: auch der Bot, der den Clip-Befehl beantwortet (kann ein anderer sein als der Clip-Sharing-Bot).
+  const trustedKeys=[clipBotKey(),clipCmdBotKey()];
+  const trustedSender=trustedKeys.some(k=>
+    (ids[k] && senderId===String(ids[k])) ||
+    (!!accountMap[k]?.login && login===String(accountMap[k].login).toLowerCase())
+  );
 
   if(!trustedSender) return false;
 
@@ -2370,6 +2387,62 @@ function renderClipMessage(template, clip, showCreator=true) {
 
   return message.replace(/\s+/g, " ").trim();
 }
+
+// 9.28.0 · Chat-Befehl „!clip“ (Logik in /shared/clip-command.js). Der Clip wird über das Kanal-Konto erstellt
+// (Recht clips:edit); die Antwort schreibt der einstellbare Bot (cmdBot, sonst der Clip-Bot).
+const {createClipCommand} = require("/shared/clip-command");
+const clipCmdBotKey = cfg => resolveBot((cfg && cfg.cmdBot) || readJson(FILES.settings, DEFAULT_SETTINGS)?.clipSharing?.cmdBot || clipBotKey());
+async function createClipViaApi({title, duration}) {
+  if (!ids.channel) return {ok:false, reason:"error", error:"Channel-ID fehlt."};
+  syncAccounts();
+  const url = new URL("https://api.twitch.tv/helix/clips");
+  url.searchParams.set("broadcaster_id", ids.channel);
+  if (title) url.searchParams.set("title", String(title).slice(0, 140));
+  url.searchParams.set("duration", String(duration || 30));
+  let r;
+  try {
+    r = await twitchFetch(currentRoster.channel.key, url.toString(), {method:"POST"});
+  } catch (e) {
+    if (/Token fehlt/i.test(String(e?.message))) return {ok:false, reason:"scope", error:"Kanal-Konto ist nicht verbunden (clips:edit)."};
+    return {ok:false, reason:"error", error:describeFetchError(e, "Twitch (api.twitch.tv)")};
+  }
+  const j = await r.json().catch(()=>({}));
+  const entry = Array.isArray(j?.data) ? j.data[0] : null;
+  if (r.ok && entry?.id) return {ok:true, id:String(entry.id), editUrl:entry.edit_url || null};
+  const detail = `${r.status} ${String(j?.message || j?.error || "").slice(0, 200)}`.trim();
+  if (r.status === 404) return {ok:false, reason:"offline", error:detail};
+  if (r.status === 401) return {ok:false, reason:"scope", error:`Recht clips:edit fehlt oder Anmeldung ungültig – Kanal-Konto unter Twitch-Verbindungen neu verbinden (${detail}).`};
+  if (r.status === 403) return {ok:false, reason:"forbidden", error:`Twitch erlaubt das Clippen hier nicht (${detail}).`};
+  if (r.status === 429) return {ok:false, reason:"rate", error:`Twitch-Limit erreicht (${detail}).`};
+  return {ok:false, reason:"error", error:`Clip konnte nicht erstellt werden (${detail}).`};
+}
+async function getClipById(id) {
+  const r = await twitchAppFetch(`https://api.twitch.tv/helix/clips?id=${encodeURIComponent(id)}`);
+  if (!r.ok) return null;
+  const j = await r.json().catch(()=>({}));
+  return Array.isArray(j?.data) && j.data[0] ? j.data[0] : null;
+}
+const clipCommand = createClipCommand({
+  now: () => Date.now(),
+  sleep: ms => new Promise(res => setTimeout(res, ms)),
+  channelId: () => ids.channel,
+  createClip: createClipViaApi,
+  getClip: getClipById,
+  sendChat: (bot, message, opts) => sendChat(bot, message, opts),
+  botKey: cfg => clipCmdBotKey(cfg),
+  reserveClip: clip => { if (pgStore.enabled) return pgStore.reserveClip(clip); const st = readClipState(); st.seen[clip.id] = {createdAt:clip.created_at, title:clip.title, url:clip.url, creator:clip.creator_name || ""}; writeClipState(st); return {inserted:true}; },
+  markShared: (clip, info) => {
+    const st = readClipState();
+    st.seen[clip.id] = {createdAt:clip.created_at, title:clip.title, url:clip.url, creator:clip.creator_name || ""};
+    st.lastShared = {id:clip.id, title:clip.title, url:clip.url, creator:clip.creator_name || "", createdAt:clip.created_at, sharedAt:info.sharedAt, source:"command", requestedBy:info.requestedBy};
+    st.lastError = null;
+    if (pgStore.enabled) pgStore.markClipShared(clip, info.sharedAt);
+    writeClipState(st);
+  },
+  markError: (id, message) => { if (pgStore.enabled) pgStore.markClipError(id, message); const st = readClipState(); st.lastError = message; writeClipState(st); },
+  enqueueDiscord: payload => { enqueueDiscordAnnouncement("clip", payload.clipId, payload); setTimeout(flushDiscordBridge, 250); },
+  audit: (event, data) => audit(clipCmdBotKey(), event, data)
+});
 
 async function fetchRecentClips(minutes=10) {
   if (!ids.channel) throw new Error("Channel-ID fehlt.");

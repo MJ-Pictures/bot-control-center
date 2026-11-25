@@ -17,7 +17,7 @@ Jede Funktion lässt sich als Modul unter Administration → Integrationen einze
 - **Subathon:** Countdown, der durch Abos, geschenkte Abos, Bits und (optional) Follows verlängert wird, mit Overlay, eigenem Logo und Einstellungen vor dem Start.
 - **Punktespiel:** Chat-Spiel mit eigener Punktewährung, Konten, Einsätzen und Runden sowie einem Overlay mit Figur. Name, Währung und Befehle sind anpassbar; eine Standardfigur ist eingebaut, ein eigenes Bild lässt sich hochladen.
 - **Gewinnspiele:** Teilnahme per Chatnachricht, Ziehung und Verlauf.
-- **Clips:** neue Clips erkennen, im Chat teilen und an Discord melden; nach einem Netzausfall werden verpasste Clips nachgeholt.
+- **Clips:** neue Clips erkennen, im Chat teilen und an Discord melden; nach einem Netzausfall werden verpasste Clips nachgeholt. Dazu ein Chat-Befehl (z. B. `!clip`), mit dem Zuschauer auf Zuruf einen Clip erstellen: Berechtigung, Pausen, Länge und antwortender Bot sind einstellbar.
 - **Lurk-Rückkehr:** der Bot meldet, wie lange jemand nach einem Lurk-Befehl weg war.
 - **Event-Profile:** Vorlagen, die viele Funktionen für einen besonderen Stream auf einmal umschalten.
 - **Chat-Befehle** mit anpassbaren Texten (Textpaket), Platzhaltern und Link-Freigaben.
