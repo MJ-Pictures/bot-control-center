@@ -2,6 +2,16 @@
 
 Dieses Dokument wird aus `public/changelog.json` erzeugt, dem Protokoll, das auch die Oberfläche anzeigt. Die neueste Version steht oben.
 
+## 9.28.2 – 2026-11-25
+
+**Punktespiel-Overlay: neue Punkte-Übersicht, Kasten an/aus, Deckkraft**
+
+- Neue Einstellung „Punkte-Übersicht“ im Punktespiel-Overlay: „Karten“ (wie bisher, Standard) oder „Chips mit Punkten“. Die Chips zeigen im Ergebnis „+Punkte Name“ bzw. „-Einsatz Name“, sortiert (Gewinner zuerst nach Betrag, dann Erwischte), nie abgeschnitten; höchstens 12, der Rest als „und N weitere“. Erwischte bekommen mindestens 4 Plätze, damit sie nicht hinter vielen Gewinnern verschwinden. In Anmeldung und Kontrolle zeigen die Chips Name und Einsatz.
+- Neu: Kasten hinter dem Panel „An“ (wie bisher, Standard) oder „Aus“ (nur Text mit Schatten direkt im Bild, Chips behalten einen dunklen Grund) und die Deckkraft des Kastens (10 bis 100 %, Standard 100).
+- Zusammenspiel mit der Detailstufe: „Ausführlich“ zeigt alles wie bisher, bei „Chips“ anstelle der Karten. „Kompakt“ mit Chips zeigt die Chips nur im Ergebnis und lässt dort die Textzeile mit denselben Punkten weg; „Kompakt“ mit Karten bleibt wie in 9.28.1.
+- Zum Ausprobieren lassen sich die Werte in der Overlay-Adresse überschreiben: …&points=chips&box=off&boxopacity=60.
+- Nach dem Update in OBS bzw. Moblin die Browserquelle einmal neu laden. Ohne Änderung der Einstellungen sieht das Overlay aus wie in 9.28.1.
+
 ## 9.28.1 – 2026-11-25
 
 **Punktespiel-Overlay: Lage, Größe und Detailstufe einstellbar**

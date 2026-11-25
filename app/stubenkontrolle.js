@@ -10,7 +10,7 @@ const { NEUTRAL_GAME, FIXED_GAME_COMMANDS, normalizeGame } = require("../shared/
 const OVERLAY_ANCHORS = ["top-left","top-center","top-right","middle-left","middle-center","middle-right","bottom-left","bottom-center","bottom-right"];
 // 9.28.1: Layout-Einstellungen, wie das Overlay sie bekommt (Zustandsnachricht und Test-Szenarien).
 function overlayLayout(cfg){
-  return {scale:cfg.overlayScale,anchor:cfg.overlayAnchor,margin:cfg.overlayMargin,detail:cfg.overlayDetail};
+  return {scale:cfg.overlayScale,anchor:cfg.overlayAnchor,margin:cfg.overlayMargin,detail:cfg.overlayDetail,points:cfg.overlayPoints,box:cfg.overlayBox,boxOpacity:cfg.overlayBoxOpacity};
 }
 
 const DEFAULT_CONFIG = {
@@ -41,6 +41,10 @@ const DEFAULT_CONFIG = {
   overlayAnchor: "bottom-center",
   overlayMargin: 60,
   overlayDetail: "full",
+  // 9.28.2: Punkte-Übersicht (cards = Karten wie bisher | chips = sortierte Chips „+Punkte Name“), Kasten hinter dem Panel an/aus, Deckkraft 10–100 %.
+  overlayPoints: "cards",
+  overlayBox: "on",
+  overlayBoxOpacity: 100,
   // 8.9.6: Beitritts-Meldungen im Chat. auto = die ersten N einzeln, danach Sammelmeldung;
   // all = jeden einzeln; everyNth = nur jeden N-ten; off = keine. Die Eröffnung der Runde kommt immer.
   joinChatMode: "auto",
@@ -113,6 +117,9 @@ function normalizeConfig(input={},phraseDefaults=DEFAULT_CONFIG.phrases,titleDef
   c.overlayAnchor=OVERLAY_ANCHORS.includes(c.overlayAnchor)?c.overlayAnchor:DEFAULT_CONFIG.overlayAnchor;
   c.overlayMargin=int(c.overlayMargin,0,300);
   c.overlayDetail=["full","compact"].includes(c.overlayDetail)?c.overlayDetail:"full";
+  c.overlayPoints=["cards","chips"].includes(c.overlayPoints)?c.overlayPoints:"cards";
+  c.overlayBox=["on","off"].includes(c.overlayBox)?c.overlayBox:"on";
+  c.overlayBoxOpacity=int(c.overlayBoxOpacity,10,100);
   c.joinChatMode=["auto","all","everyNth","off"].includes(c.joinChatMode)?c.joinChatMode:"auto";
   c.joinChatAutoSingles=int(c.joinChatAutoSingles,1,50);
   c.joinChatSummarySeconds=int(c.joinChatSummarySeconds,3,60);

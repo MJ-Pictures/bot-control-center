@@ -7,9 +7,9 @@
 html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent;font-family:"Akzidenz Grotesk Bold","Arial Black",Arial,sans-serif;font-weight:700;color:var(--gold)}
 .stage{position:relative;width:1920px;height:1080px;transform-origin:top left;overflow:hidden}
 .dock{position:absolute;z-index:3;left:0;bottom:60px;width:1180px;transition:top .35s,bottom .35s}
-.panel{position:relative;width:100%;padding:16px 26px 14px;background:linear-gradient(135deg,rgba(15,20,26,.94),rgba(28,35,44,.9));border:2px solid rgba(250,183,10,.8);clip-path:polygon(0 0,97% 0,100% 22%,100% 100%,3% 100%,0 78%);overflow:hidden;opacity:0;transform:translateY(30px);transition:opacity .35s,transform .35s}
+.panel{position:relative;width:100%;padding:16px 26px 14px;background:linear-gradient(135deg,rgba(15,20,26,calc(.94*var(--ba,1))),rgba(28,35,44,calc(.9*var(--ba,1))));border:2px solid rgba(250,183,10,calc(.8*var(--ba,1)));clip-path:polygon(0 0,97% 0,100% 22%,100% 100%,3% 100%,0 78%);overflow:hidden;opacity:0;transform:translateY(30px);transition:opacity .35s,transform .35s}
 .panel.show{opacity:1;transform:none}
-/* 9.28.1: Lage, Größe und Anheben während der Anmeldung setzt das Skript (layoutPanel): Anker, Rand und Skalierung per transform auf dem Rahmen (#dock). */
+/* 9.28.1: Lage und Größe setzt das Skript (layoutPanel): Anker, Rand und Skalierung per transform auf dem Rahmen (#dock); bei Anker unten bleibt ein fester Streifen für die Männchen frei. */
 /* Detailstufe „kompakt“: nur Titel, Kopfzeile und Ergebnistext; Karten, Seitenanzeige und Zusatzzeile entfallen (die Männchen zeigen die Namen). */
 .stage.compact .people,.stage.compact .pageinfo,.stage.compact #resultTitle{display:none}
 .stage.compact #phrase{-webkit-line-clamp:3}
@@ -32,7 +32,23 @@ h1{font-size:30px;margin:0 0 4px;letter-spacing:.01em}
 .pageinfo{font-size:13px;opacity:.75;margin-top:6px;padding-left:22px}
 .connection{color:#fff;position:absolute;z-index:9;right:20px;top:20px;font:18px system-ui;background:rgba(0,0,0,.45);padding:6px 10px;border-radius:6px}
 .connection.ok{color:#8ff0a4}
-.panel>.polygon{position:absolute;z-index:0;inset:0;width:100%;height:100%;object-fit:cover;opacity:.22;pointer-events:none}
+.panel>.polygon{position:absolute;z-index:0;inset:0;width:100%;height:100%;object-fit:cover;opacity:calc(.22*var(--ba,1));pointer-events:none}
+/* 9.28.2: Kasten hinter dem Panel aus: nur Text mit Schatten, Chips behalten einen eigenen dunklen Grund */
+.stage.box-off .panel{background:none;border:none;clip-path:none;text-shadow:0 2px 6px rgba(0,0,0,.95),0 0 3px rgba(0,0,0,.9)}
+.stage.box-off .panel>.polygon{display:none}
+/* 9.28.2: Punkte-Übersicht als Chips „+Punkte Name“, sortiert, nie abgeschnitten (Namen brechen nicht um, die Reihe bricht um) */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{background:rgba(0,0,0,.5);padding:5px 11px;border-radius:6px;font-size:16px;line-height:1.25;border-left:4px solid #777;white-space:nowrap;text-shadow:none}
+.chip.passed{border-left-color:#5dcc7a}
+.chip.caught{border-left-color:#e15b5b}
+.chip .amt{font-weight:700}
+.chip.passed .amt{color:var(--win)}
+.chip.caught .amt{color:var(--lose)}
+.chip.more{border-left-color:transparent;opacity:.85}
+.stage.pts-cards .chips{display:none}
+.stage.pts-chips .people,.stage.pts-chips .pageinfo{display:none}
+.stage.compact.pts-chips:not(.result) .chips{display:none}
+.stage.compact.pts-chips.result #phrase{display:none}
 .countdown{font-size:62px;font-weight:700;color:var(--gold)}
 .result-title{font-size:18px;margin-top:5px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .hidden{display:none}
@@ -66,6 +82,7 @@ h1{font-size:30px;margin:0 0 4px;letter-spacing:.01em}
     <div id="resultTitle" class="result-title"></div>
     <div id="phrase" class="result-title accent"></div>
     <div id="people" class="people"></div>
+    <div id="chips" class="chips"></div>
     <div id="pageinfo" class="pageinfo"></div>
   </div>
   </div>

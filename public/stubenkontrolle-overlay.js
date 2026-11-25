@@ -20,17 +20,21 @@ addEventListener("resize",scale);scale();
 
 /* ===== Lage und Größe des Panels (9.28.1) =====
    Einstellung im Control Center (state.config.layout); zum Ausprobieren überschreibbar per Adresse:
-   &scale=40..100 &anchor=bottom-center &margin=0..300 &detail=full|compact (Fragment oder Query). */
+   &scale=40..100 &anchor=bottom-center &margin=0..300 &detail=full|compact (Fragment oder Query).
+   9.28.2: &points=cards|chips &box=on|off &boxopacity=10..100 */
 const ANCHORS=["top-left","top-center","top-right","middle-left","middle-center","middle-right","bottom-left","bottom-center","bottom-right"];
 function clampNum(v,min,max,fallback){const n=Number(v);return Number.isFinite(n)?Math.min(max,Math.max(min,Math.round(n))):fallback}
 function layoutSettings(){
   const c=state?.config?.layout||{};
-  const a=opt("anchor"),d=opt("detail");
+  const a=opt("anchor"),d=opt("detail"),pt=opt("points"),bx=opt("box");
   return {
     scale:clampNum(opt("scale")??c.scale,40,100,80)/100,
     anchor:ANCHORS.includes(a)?a:(ANCHORS.includes(c.anchor)?c.anchor:"bottom-center"),
     margin:clampNum(opt("margin")??c.margin,0,300,60),
-    detail:d==="full"||d==="compact"?d:(c.detail==="compact"?"compact":"full")
+    detail:d==="full"||d==="compact"?d:(c.detail==="compact"?"compact":"full"),
+    points:pt==="cards"||pt==="chips"?pt:(c.points==="chips"?"chips":"cards"),
+    box:bx==="on"||bx==="off"?bx:(c.box==="off"?"off":"on"),
+    boxOpacity:clampNum(opt("boxopacity")??c.boxOpacity,10,100,100)/100
   };
 }
 /* Platz für die Männchen: Sie laufen unten am Bildrand (Anmeldung). Bei Anker unten steht das Panel in JEDER Phase um diesen Streifen höher,
@@ -55,6 +59,9 @@ function layoutPanel(){
   pn.style.transformOrigin=`${h==="left"?"0%":h==="right"?"100%":"50%"} ${v==="top"?"0%":v==="bottom"?"100%":"50%"}`;
   pn.style.transform=`translate(${h==="center"?"-50%":"0"},${v==="middle"?"-50%":"0"}) scale(${L.scale})`;
   st.classList.toggle("compact",L.detail==="compact");
+  st.classList.toggle("pts-chips",L.points==="chips");st.classList.toggle("pts-cards",L.points!=="chips");
+  st.classList.toggle("box-off",L.box==="off");
+  pn.style.setProperty("--ba",String(L.boxOpacity));
 }
 
 /* ===== Statusanzeige „WSS: …“ (Einstellung im Control Center: nur bei Problemen | immer | nie) ===== */
@@ -82,7 +89,34 @@ function connect(){
 }
 /* Bis 24 Personen große Karten, bis 48 kompakt, darüber blättert die Liste alle 5 s weiter. */
 const PAGE_SIZE=48,PAGE_MS=5000;
+const MAX_CHIPS=12,MIN_CAUGHT_CHIPS=4;
+/* 9.28.2: Auswahl und Reihenfolge der Chips. Ergebnis: Gewinner zuerst nach Betrag, dann Erwischte nach Einsatz; damit Erwischte nicht hinter vielen Gewinnern
+   verschwinden, bekommen sie mindestens 4 der 12 Plätze (sofern es so viele gibt). Sonst nach Einsatz sortiert. Der Rest wird als „und N weitere“ gezählt. */
+/*PICKCHIPS-START*/
+function pickChips(phase,all,max,minCaught){
+  if(phase!=="result"){const sorted=[...all].sort((a,b)=>(b.bet||0)-(a.bet||0));return {list:sorted.slice(0,max),rest:Math.max(0,sorted.length-max)}}
+  const win=all.filter(p=>p.outcome==="passed").sort((a,b)=>Math.abs(b.delta||0)-Math.abs(a.delta||0));
+  const lose=all.filter(p=>p.outcome!=="passed").sort((a,b)=>(b.bet||0)-(a.bet||0));
+  const takeLose=Math.min(lose.length,Math.max(minCaught,max-win.length)),takeWin=Math.min(win.length,max-takeLose);
+  const list=[...win.slice(0,takeWin),...lose.slice(0,takeLose)];
+  return {list,rest:all.length-list.length};
+}
+/*PICKCHIPS-END*/
+function renderChips(phase,all){
+  const {list,rest}=pickChips(phase,all,MAX_CHIPS,MIN_CAUGHT_CHIPS);
+  let html=list.map(p=>{
+    if(phase==="result"){
+      const amt=p.outcome==="passed"?`+${p.delta}`:`-${p.bet}`;
+      return `<div class="chip ${escapeHtml(p.outcome||"")}"><span class="amt">${escapeHtml(amt)}</span> ${escapeHtml(p.name)}</div>`;
+    }
+    return `<div class="chip"><strong>${escapeHtml(p.name)}</strong> · ${escapeHtml(p.bet)}</div>`;
+  }).join("");
+  if(rest>0)html+=`<div class="chip more">und ${rest} weitere</div>`;
+  $("chips").innerHTML=html;
+}
 function renderPeople(phase,all){
+  if(layoutSettings().points==="chips"){renderChips(phase,all);$("people").innerHTML="";$("pageinfo").textContent="";return}
+  $("chips").innerHTML="";
   if(phase==="result")all=[...all].sort((a,b)=>(b.outcome==="passed")-(a.outcome==="passed")||Math.abs(b.delta||0)-Math.abs(a.delta||0));
   const compact=all.length>24, pages=Math.max(1,Math.ceil(all.length/(compact?PAGE_SIZE:24))), per=Math.ceil(all.length/pages)||1; // 6×4 bzw. 8×6
   const page=Math.floor(Date.now()/PAGE_MS)%pages, list=all.slice(page*per,page*per+per);
