@@ -2,6 +2,21 @@
 
 Dieses Dokument wird aus `public/changelog.json` erzeugt, dem Protokoll, das auch die Oberfläche anzeigt. Die neueste Version steht oben.
 
+## 9.29.2 – 2026-11-26
+
+**Chat-Overlay: Gesamtgröße, Schrift und Grafiken einstellbar**
+
+- Neu: Gesamtgröße (30–200 %) – verkleinert oder vergrößert das Chat-Overlay als Ganzes: Schrift, Grafiken, Abstände und die automatische Breite. Damit wirkt der Chat weniger dominant, ohne Einzelwerte anzufassen.
+- Neu: Größe der Grafiken (50–200 %) – Emotes, Abzeichen, Kartensymbole und Namenspunkt unabhängig von der Schrift. Die Schriftgröße reicht jetzt von 50 bis 200 % (vorher 70 bis 160 %).
+- Alle drei Werte stehen auf 100 %, das entspricht der bisherigen Größe; bestehende Einstellungen ändern sich nicht. Eine eigens eingestellte Breite bleibt unverändert. In der Vorschau lassen sich Größen auch per Adresse prüfen (?demo=1&overall=60&text=100&graphics=100).
+
+## 9.29.1 – 2026-11-26
+
+**Compose-Vorlage korrigiert, Anleitung für eine zweite Installation**
+
+- Korrektur: In der Compose-Vorlage (tools/compose/compose.yaml) war seit 9.16.0 eine Zeile falsch eingerückt; „docker compose“ lehnte die unveränderte Vorlage ab. Die Vorlage ist wieder gültig und wird jetzt automatisch geprüft. Bereits laufende Installationen sind nicht betroffen.
+- Neu in der Installationsanleitung: „Zweite Installation auf demselben Rechner (z. B. Testinstanz)“ – welche festen Namen, welches Docker-Netz, welcher Port und welche Zugänge dafür eigens angelegt werden müssen.
+
 ## 9.29.0 – 2026-11-25
 
 **Zugriffsprofile unter Administration → Benutzer & Zugriffe**

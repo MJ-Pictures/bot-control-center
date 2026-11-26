@@ -69,6 +69,32 @@ Danach mit dem **Twitch-Konto des Kanals** anmelden: Es erhält automatisch Owne
 
 **Windows/Mac (Docker Desktop):** Reiner Heimbetrieb mit `http://localhost:3000`. Für Zugriff aus dem Internet oder für OBS auf einem anderen Rechner brauchst du eine echte Adresse mit https. Der Rechner muss laufen, damit die Bots online sind.
 
+## Zweite Installation auf demselben Rechner (z. B. Testinstanz)
+Du kannst auf demselben Rechner eine zweite, getrennte Installation betreiben, etwa zum Ausprobieren mit einem Testkanal. Die Vorlage ist dafür nicht ohne Änderung geeignet, weil mehrere Namen **fest** vergeben sind. Ohne Anpassung scheitert der Start („name already in use“) oder, schlimmer, beide Installationen hängen im selben Docker-Netz und könnten einander erreichen.
+
+**Eigener Projektordner:** neuer, leerer Ordner (z. B. `/opt/bcc-test`) mit eigener Programmkopie (Schritt 1), eigener `compose.yaml`, eigenem `secrets/`, `data/`, `discord-data/` und `postgres-data/`. Nichts aus dem Ordner der ersten Installation mitbenutzen.
+
+**In der `compose.yaml` der zweiten Installation ändern:**
+- **Containernamen:** alle `container_name` (`bcc-db`, `bcc-web`, `bcc-twitch`, `bcc-discord`, `bcc-mcp`) umbenennen, z. B. mit Präfix `bcct-`. Keine Variablen wie `${PRAEFIX}` verwenden: Das Update-Werkzeug liest den Namen des Datenbank-Containers direkt aus der Datei.
+- **Netz:** unter `networks` → `default` → `name` einen **eigenen Netznamen** eintragen (z. B. `bcct-net`). Das ist der wichtigste Punkt: Ein gleicher Netzname verbindet beide Installationen, und die Dienstnamen `db`, `web`, `twitch`, `discord` würden doppelt vergeben.
+- **Port:** beim Dienst `web` den Host-Port ändern, z. B. `"3010:3000"`. Reverse-Proxy und Browser verwenden dann `localhost:3010`.
+- **Image-Name:** `bwk-node-pg:7.2.0` (dreimal) umbenennen, z. B. `bcct-node-pg:7.2.0`, damit sich beide Installationen nie ein Image teilen.
+- **Adresse:** eigene Adresse für die Platzhalter `bot.example.org` (siehe Schritt 3), z. B. eine eigene Subdomain mit eigenem Zertifikat und eigenem Reverse-Proxy-Eintrag auf den neuen Port (WebSocket-Header für die Overlays aktivieren).
+- **`TRUSTED_PROXY_CIDRS`:** Das Gateway des neuen Netzes hat eine andere Adresse. Nach dem ersten Start mit `docker network inspect <netzname>` ansehen (Feld „Gateway“), in die `compose.yaml` eintragen und den Dienst `web` neu starten.
+- **`DISCORD_SERVICE_LABEL`** (zweimal) auf den neuen Containernamen setzen; das ist nur die Anzeige im Systemstatus.
+- Den Dienst `mcp` weglassen, wenn du ihn nicht brauchst.
+
+Beispiel für die Umbenennungen (Präfix `bcct-`, Netz `bcct-net`, Port 3010), vorher eine Kopie der Datei anlegen und das Ergebnis lesen:
+```bash
+sed -i 's/bcc-/bcct-/g; s/bwk-node-pg/bcct-node-pg/g; s/name: bwk-control-center/name: bcct-net/; s/"3000:3000"/"3010:3000"/' compose.yaml
+```
+
+**Eigene Zugänge:** Jede Installation braucht ihre **eigene Twitch-Anwendung** (Client-ID und Secret, mit der Weiterleitungsadresse der zweiten Installation), eigene Bot- und Kanal-Konten und, wenn du Discord nutzt, eine **eigene Discord-Anwendung mit eigenem Bot-Token** und einen eigenen Server. Dieselben Tokens dürfen nie in zwei Installationen gleichzeitig laufen (doppelte Antworten, getrennte Verbindungen).
+
+**Update-Werkzeug:** Die zweite Installation bekommt ihre eigene Einrichtung nach [`UPDATER-EINRICHTEN.md`](../deploy/UPDATER-EINRICHTEN.md) (eigener Zeitplan-Eintrag, `deploy/` im eigenen Projektordner). Prüfe in `deploy/work/pull/config.json`, dass `db_container` auf den neuen Namen zeigt.
+
+**Last:** Jede Installation braucht eigenen Arbeitsspeicher (PostgreSQL und die Bots). Auf kleinen Geräten die Testinstanz nur bei Bedarf laufen lassen.
+
 ## Sicherung und Updates
 - Datenbank sichern: Skripte in `scripts/` (Sicherung und Wiederherstellung); die Seite Administration → Backup / Restore deckt die Einstellungen und Bilder ab.
 - Updates **automatisch** (Linux/NAS): Update-Werkzeug nach [`UPDATER-EINRICHTEN.md`](../deploy/UPDATER-EINRICHTEN.md) einrichten. Neue Versionen erscheinen dann unter Administration → Updates und werden erst nach deiner Freigabe installiert.

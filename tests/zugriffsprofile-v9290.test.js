@@ -115,8 +115,8 @@ test("Server: Dokument registriert, Rechte in effectiveSessionUser, Routen nur f
 test("Oberfläche, Release-Dateien",()=>{
   const a=read("public/app.js");
   for(const k of ["renderProfilesPanel","profileRow","save-user-profiles","/api/access-profiles/rules","Zusätzliche Einzelrechte","matrixHtml("]) assert.ok(a.includes(k),k);
-  assert.match(read("VERSION"),/^9\.29\.0/);
-  assert.ok(fs.existsSync(path.join(root,"UPDATE-9.29.0.md"))); assert.ok(!fs.existsSync(path.join(root,"UPDATE-9.28.4.md")));
+  assert.match(read("VERSION"),/^9\.29\./);
+  assert.ok(!fs.existsSync(path.join(root,"UPDATE-9.28.4.md")));
   assert.ok(JSON.parse(read("public/changelog.json")).versions.some(v=>v.version==="9.29.0"));
   assert.match(read("public/style.css"),/\.rule-row\{/);
 });

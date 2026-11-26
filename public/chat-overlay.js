@@ -15,7 +15,7 @@ const FONT_NAME = /^[A-Za-z0-9][A-Za-z0-9 ._-]{0,39}$/;
 const IMAGE_URL = /^\/branding\/image\/[A-Za-z]{1,30}\?v=[A-Za-z0-9]{1,16}$/;
 const THEMES = ["dark", "light", "angular"];
 let images = {};   // eigene Bilder der Installation (Symbole, Textur), nur geprüfte Adressen
-let cfg = { theme: "dark", align: "left", fontScale: 100, maxMessages: 8, displaySeconds: 60, accentColor: "#FAB70A", font: "system", showBadges: true, showEmotes: true, nameColorDot: false };
+let cfg = { theme: "dark", align: "left", fontScale: 100, overallScale: 100, graphicScale: 100, maxMessages: 8, displaySeconds: 60, accentColor: "#FAB70A", font: "system", showBadges: true, showEmotes: true, nameColorDot: false };
 const items = new Map();   // Nachrichten-ID → { el, uid, timer }
 
 // 9.28.4: Ausweichen während einer Spielrunde (Phase kommt vom Server, Einstellung vom Betreiber)
@@ -35,6 +35,8 @@ function applyConfig(c) {
   if (demo) { // Nur in der Vorschau: Look und Ausrichtung per Adresse prüfbar (?theme=light&align=right)
     if (THEMES.includes(params.get("theme"))) theme = params.get("theme");
     if (["left", "right"].includes(params.get("align"))) align = params.get("align");
+    // 9.29.2: auch die Größen lassen sich in der Vorschau per Adresse prüfen (?overall=60&text=100&graphics=100)
+    for (const [key, prop] of [["overall", "overallScale"], ["text", "fontScale"], ["graphics", "graphicScale"]]) if (params.has(key)) cfg[prop] = Number(params.get(key));
   }
   const b = document.body;
   b.dataset.theme = THEMES.includes(theme) ? theme : "dark";
@@ -57,7 +59,13 @@ function applyConfig(c) {
     b.dataset.tshadow = ["soft", "strong"].includes(cfg.textShadow) ? cfg.textShadow : "off";
     if (COLOR.test(String(cfg.bubbleColor || ""))) { const h = cfg.bubbleColor; b.style.setProperty("--bub", `rgba(${parseInt(h.slice(1, 3), 16)},${parseInt(h.slice(3, 5), 16)},${parseInt(h.slice(5, 7), 16)},${bo / 100})`); } }
   b.style.setProperty("--accent", COLOR.test(cfg.accentColor) ? cfg.accentColor : "#FAB70A");
-  b.style.setProperty("--scale", String(Math.min(1.6, Math.max(0.7, Number(cfg.fontScale) / 100 || 1))));
+  { // 9.29.2: Größen. Gesamt (30–200) × Schrift (50–200) bestimmen die Schriftgröße; Grafiken (50–200) sind davon unabhängig:
+    // --gr rechnet die Grafikgröße (in em) auf die Schriftgröße um, --ov skaliert die automatische Breite mit der Gesamtgröße.
+    const pct = (v, lo, hi) => Math.min(hi, Math.max(lo, Number.isFinite(Number(v)) && Number(v) > 0 ? Number(v) : 100));
+    const o = pct(cfg.overallScale, 30, 200), f = pct(cfg.fontScale, 50, 200), g = pct(cfg.graphicScale, 50, 200);
+    b.style.setProperty("--scale", String(o * f / 10000));
+    b.style.setProperty("--gr", String(g / f));
+    b.style.setProperty("--ov", String(o / 100)); }
   applyDodge();
   trim();
 }

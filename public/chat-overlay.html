@@ -9,8 +9,9 @@ body{--accent:#FAB70A;--scale:1;--ink:#1b1d12;--olive:#2f3313;
   font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-weight:700;line-height:1.25}
 body[data-font="custom"]{font-family:var(--font,system-ui),system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
 body[data-font="akzidenz"]{font-family:"Akzidenz Grotesk Bold","Akzidenz-Grotesk BQ Bold",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
-/* Schriftgröße folgt der Breite der Browserquelle (1920 px Breite ≈ 31 px), Regler „Schriftgröße“ skaliert zusätzlich. */
-#chat{position:absolute;left:var(--mx,24px);bottom:var(--my,24px);width:min(calc(100% - 2*var(--mx,24px)),max(36vw,380px),780px);
+/* Schriftgröße folgt der Breite der Browserquelle (1920 px Breite ≈ 31 px); --scale = Gesamtgröße × Schrift (9.29.2).
+   Die automatische Breite wächst bzw. schrumpft mit der Gesamtgröße (--ov); Grafiken folgen --gr (Grafikgröße relativ zur Schrift). */
+#chat{position:absolute;left:var(--mx,24px);bottom:var(--my,24px);width:min(calc(100% - 2*var(--mx,24px)),calc(var(--ov,1)*min(max(36vw,380px),780px)));
   display:flex;flex-direction:column;align-items:flex-start;gap:.5em;font-size:calc(var(--scale)*clamp(15px,1.6vw,36px))}
 body[data-align="right"] #chat{left:auto;right:var(--mx,24px);align-items:flex-end}
 body[data-anchor="top"] #chat{bottom:auto;top:var(--my,24px)}
@@ -19,14 +20,14 @@ body[data-align="right"] .msg{align-items:flex-end;animation-name:inRight}
 .msg.out{animation:out .35s ease-in both}
 .tab{display:flex;align-items:center;gap:.35em;max-width:100%;padding:.16em 1.05em .12em .7em;font-size:.82em;white-space:nowrap;position:relative;z-index:1}
 .nm{overflow:hidden;text-overflow:ellipsis;min-width:0}
-.dot{flex:none;width:.5em;height:.5em;border-radius:50%}
+.dot{flex:none;width:calc(.5em*var(--gr,1));height:calc(.5em*var(--gr,1));border-radius:50%}
 .badges{display:inline-flex;align-items:center;gap:.25em;flex:none}
-.badge{height:1.05em;width:auto;display:block}
+.badge{height:calc(1.05em*var(--gr,1));width:auto;display:block}
 .bubble{max-width:100%;min-width:min(100%,11em);padding:.42em .8em .5em;overflow-wrap:anywhere;word-break:break-word;position:relative}
 .rp{display:inline-block;margin-right:.4em;font-size:.78em;opacity:.7}
-.emote{height:1.55em;width:auto;vertical-align:middle;margin:-.2em .06em -.1em}
+.emote{height:calc(1.55em*var(--gr,1));width:auto;vertical-align:middle;margin:calc(-.2em*var(--gr,1)) .06em calc(-.1em*var(--gr,1))}
 .stack{position:relative;display:inline-block;vertical-align:middle}
-.stack .zw{position:absolute;left:0;top:50%;height:1.55em;width:auto;transform:translateY(-50%);margin:0}
+.stack .zw{position:absolute;left:0;top:50%;height:calc(1.55em*var(--gr,1));width:auto;transform:translateY(-50%);margin:0}
 
 /* Look „Dunkel“ */
 body[data-theme="dark"] .tab{background:var(--tab,var(--accent));color:var(--tabfg,var(--ink));clip-path:polygon(0 0,100% 0,calc(100% - .7em) 100%,0 100%);border-radius:.3em 0 0 0}
@@ -43,7 +44,7 @@ body[data-theme="angular"] .msg{filter:drop-shadow(0 .12em .25em rgba(0,0,0,.4))
 body[data-theme="angular"] .dot{box-shadow:0 0 0 .08em rgba(255,255,255,.7)}
 body[data-theme="dark"] .dot,body[data-theme="light"] .dot{box-shadow:0 0 0 .08em rgba(255,255,255,.65)}
 /* 9.27.1 Ereigniskarten: gleiche Formen wie Nachrichten, Symbol folgt der Reiterfarbe (Maske, Alphakanal der Bilddatei) */
-.ico{flex:none;width:1.15em;height:1.15em;background-color:currentColor;-webkit-mask:var(--ico) center/contain no-repeat;mask:var(--ico) center/contain no-repeat}
+.ico{flex:none;width:calc(1.15em*var(--gr,1));height:calc(1.15em*var(--gr,1));background-color:currentColor;-webkit-mask:var(--ico) center/contain no-repeat;mask:var(--ico) center/contain no-repeat}
 .card.follow .ico{--ico:url(/chat-overlay-icons/herz.png)}
 .card.raid .ico{--ico:url(/chat-overlay-icons/raid.png)}
 .card.sub .ico{--ico:url(/chat-overlay-icons/abo.png)}

@@ -7119,8 +7119,11 @@ async function renderChatOverlay(){
           <label>Akzentfarbe<input id="coAccent" type="color" value="${esc(c.accentColor||"#FAB70A")}" ${dis}></label>
           <label>Schrift<select id="coFont" ${dis}>${opt("system","Systemschrift (läuft überall)",c.font)}${opt("akzidenz","Akzidenz Grotesk Bold, falls auf dem Gerät installiert",c.font)}${opt("custom","Eigene Schrift (Name unten)",c.font)}</select></label>
           <label>Name der eigenen Schrift<input id="coFontFamily" type="text" maxlength="40" placeholder="zum Beispiel Barlow Semi Condensed" value="${esc(c.fontFamily||"")}" ${dis}></label>
-          <label>Schriftgröße in Prozent (70–160)<input id="coScale" type="number" min="70" max="160" step="5" value="${Number(c.fontScale)||100}" ${dis}></label>
+          <label>Gesamtgröße in Prozent (30–200)<input id="coOverall" type="number" min="30" max="200" step="5" value="${Number(c.overallScale)||100}" ${dis}></label>
+          <label>Schriftgröße in Prozent (50–200)<input id="coScale" type="number" min="50" max="200" step="5" value="${Number(c.fontScale)||100}" ${dis}></label>
+          <label>Größe der Grafiken in Prozent (50–200)<input id="coGraphic" type="number" min="50" max="200" step="5" value="${Number(c.graphicScale)||100}" ${dis}></label>
         </div>
+        <p class="hint">Zu dominant? <strong>Gesamtgröße</strong> verkleinert bzw. vergrößert alles zusammen: Schrift, Grafiken, Abstände und die automatische Breite. <strong>Schriftgröße</strong> ändert nur den Text, <strong>Größe der Grafiken</strong> nur Emotes, Abzeichen und Kartensymbole. 100 entspricht der bisherigen Größe. Eine unter „Anpassung“ eigens eingestellte Breite bleibt unverändert. Ergebnis mit „Vorschau mit Beispielnachrichten“ prüfen (zuerst speichern).</p>
         <div class="co-checks">
           <label class="checkline"><input id="coBadges" type="checkbox" ${c.showBadges?"checked":""} ${dis}> Twitch-Abzeichen anzeigen</label>
           <label class="checkline"><input id="coEmotes" type="checkbox" ${c.showEmotes?"checked":""} ${dis}> Twitch-Emotes als Bilder anzeigen (sonst als Text)</label>
@@ -7173,7 +7176,7 @@ async function renderChatOverlay(){
         <p class="hint">Gedacht für Fremdbots wie Nightbot oder Fossabot. Die Meldungen des Chat-Spiels zeigt auch das Spiel-Overlay selbst; Beides gleichzeitig ergibt doppelte Anzeigen. Mit „Nicht im Chat zeigen“ erscheinen sie nur im Spiel-Overlay; die Auswahl „Nachrichten der eigenen Bots“ gilt dann für alle übrigen Bot-Nachrichten.</p>
         <div class="row wrap"><button id="chatOverlaySave" ${dis}>Einstellungen speichern</button></div></div>`;
     $("chatOverlaySave")?.addEventListener("click",async()=>{
-      const body={theme:$("coTheme").value,align:$("coAlign").value,accentColor:$("coAccent").value,font:$("coFont").value,fontScale:Number($("coScale").value),
+      const body={theme:$("coTheme").value,align:$("coAlign").value,accentColor:$("coAccent").value,font:$("coFont").value,fontScale:Number($("coScale").value),overallScale:Number($("coOverall").value),graphicScale:Number($("coGraphic").value),
         showBadges:$("coBadges").checked,showEmotes:$("coEmotes").checked,emotes7tv:$("coEmotes7tv").checked,emotesBttv:$("coEmotesBttv").checked,emotesFfz:$("coEmotesFfz").checked,nameColorDot:$("coDot").checked,anchor:$("coAnchor").value,marginX:Number($("coMarginX").value),marginY:Number($("coMarginY").value),widthPercent:Number($("coWidth").value),textureOpacity:Number($("coTexo").value),fontFamily:$("coFontFamily").value.trim(),
         tabColor:$("coTabOn").checked?$("coTab").value:"",tabTextColor:$("coTabTextOn").checked?$("coTabText").value:"",bubbleColor:$("coBubOn").checked?$("coBub").value:"",bubbleTextColor:$("coBubTextOn").checked?$("coBubText").value:"",
         followCards:$("coFollowCards").checked,raidCards:$("coRaidCards").checked,subCards:$("coSubCards").checked,bitsCards:$("coBitsCards").checked,redeemCards:$("coRedeemCards").checked,maxMessages:Number($("coMax").value),

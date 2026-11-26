@@ -25,7 +25,10 @@ const DEFAULT_CONFIG = Object.freeze({
   // 9.28.3: Deckkraft der Nachrichten (Namensreiter bleiben deckend), Textschatten, Spielmeldungen des Chat-Spiels im Chat
   bubbleOpacity: 100, textShadow: "off", gameMessages: "show",
   // 9.28.4: Ausweichen während einer Spielrunde (jede Phase). none = nichts, dim = abdunkeln, hide = ausblenden, up = verschieben
-  gameDodge: "none", gameDodgeDim: 30, gameDodgeShift: 360
+  gameDodge: "none", gameDodgeDim: 30, gameDodgeShift: 360,
+  // 9.29.2: Größen. overallScale skaliert alles (Schrift, Grafiken, Abstände, automatische Breite), fontScale nur die Schrift,
+  // graphicScale nur die Grafiken (Emotes, Abzeichen, Kartensymbole, Namenspunkt). 100 = wie bisher.
+  overallScale: 100, graphicScale: 100
 });
 // Welcher Schalter der Konfiguration gehört zu welcher Karte
 const EVENT_SWITCH = Object.freeze({ follow: "followCards", raid: "raidCards", sub: "subCards", resub: "subCards", gift: "subCards", gifts: "subCards", bits: "bitsCards", redeem: "redeemCards" });
@@ -59,7 +62,9 @@ function normalizeConfig(input, base = DEFAULT_CONFIG, strict = true) {
   apply("delaySeconds", v => int(v, 0, 5, "Die Verzögerung"));
   apply("maxMessages", v => int(v, 3, 15, "Die Anzahl der Nachrichten"));
   apply("displaySeconds", v => int(v, 0, 600, "Die Anzeigedauer"));
-  apply("fontScale", v => int(v, 70, 160, "Die Schriftgröße"));
+  apply("fontScale", v => int(v, 50, 200, "Die Schriftgröße"));
+  apply("overallScale", v => int(v, 30, 200, "Die Gesamtgröße"));
+  apply("graphicScale", v => int(v, 50, 200, "Die Größe der Grafiken"));
   apply("theme", v => oneOf(v, THEMES, "Der Look"));
   apply("align", v => oneOf(v, ALIGNS, "Die Ausrichtung"));
   apply("font", v => oneOf(v, FONTS, "Die Schrift"));
@@ -145,7 +150,7 @@ function createChatOverlay({ read, write, images = null, badges = null, emotes =
     }
   }
   const publicConfig = () => ({
-    theme: config.theme, align: config.align, fontScale: config.fontScale, maxMessages: config.maxMessages, displaySeconds: config.displaySeconds,
+    theme: config.theme, align: config.align, fontScale: config.fontScale, overallScale: config.overallScale, graphicScale: config.graphicScale, maxMessages: config.maxMessages, displaySeconds: config.displaySeconds,
     accentColor: config.accentColor, font: config.font, showBadges: config.showBadges, showEmotes: config.showEmotes, nameColorDot: config.nameColorDot,
     anchor: config.anchor, widthPercent: config.widthPercent, marginX: config.marginX, marginY: config.marginY, fontFamily: config.fontFamily,
     tabColor: config.tabColor, tabTextColor: config.tabTextColor, bubbleColor: config.bubbleColor, bubbleTextColor: config.bubbleTextColor, textureOpacity: config.textureOpacity, bubbleOpacity: config.bubbleOpacity, textShadow: config.textShadow,
